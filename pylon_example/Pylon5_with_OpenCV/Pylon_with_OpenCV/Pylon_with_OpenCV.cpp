@@ -22,10 +22,12 @@
 */
 
 #include "stdafx.h"
-
+#include <iomanip>
+#include <iostream>
+#include <fstream>
 // Define if images are to be saved.
 // '0'- no; '1'- yes.
-#define saveImages 1
+#define saveImages 0
 // Define if video is to be recorded.
 // '0'- no; '1'- yes.
 #define recordVideo 1
@@ -50,17 +52,20 @@ using namespace cv;
 // Namespace for using cout.
 using namespace std;
 
+using namespace GenApi;
 // Number of images to be grabbed.
-static const uint32_t c_countOfImagesToGrab = 10;
+static const uint32_t c_countOfImagesToGrab = 8000;
 
 int main(int argc, char* argv[])
 {
-    // The exit code of the sample application.
+	
+	// The exit code of the sample application.
     int exitCode = 0;
 
     // Automagically call PylonInitialize and PylonTerminate to ensure the pylon runtime system
     // is initialized during the lifetime of this object.
-    Pylon::PylonAutoInitTerm autoInitTerm;
+    //Pylon::PylonAutoInitTerm autoInitTerm;
+	PylonInitialize(); // has a matching "Terminate" statement at the very end.
 
     try
     {
@@ -71,21 +76,55 @@ int main(int argc, char* argv[])
 		cout << "Using device " << camera.GetDeviceInfo().GetVendorName() << " " << camera.GetDeviceInfo().GetModelName() << endl;
 
 		// Get a camera nodemap in order to access camera parameters.
-		GenApi::INodeMap& nodemap= camera.GetNodeMap();
+		INodeMap& nodemap= camera.GetNodeMap();
 		// Open the camera before accessing any parameters.
 		camera.Open();
 		// Create pointers to access the camera Width and Height parameters.
-		GenApi::CIntegerPtr width= nodemap.GetNode("Width");
-		GenApi::CIntegerPtr height= nodemap.GetNode("Height");
+		CIntegerPtr width= nodemap.GetNode("Width");
+		CIntegerPtr height= nodemap.GetNode("Height");
 
         // The parameter MaxNumBuffer can be used to control the count of buffers
         // allocated for grabbing. The default value of this parameter is 10.
         camera.MaxNumBuffer = 5;
 
+		CIntegerPtr(nodemap.GetNode("Width"))->SetValue(1800);
+		CIntegerPtr(nodemap.GetNode("Height"))->SetValue(1200);
+		CIntegerPtr(nodemap.GetNode("OffsetX"))->SetValue(40);
+		CIntegerPtr(nodemap.GetNode("OffsetY"))->SetValue(40);
+
+		CEnumerationPtr gainAuto(nodemap.GetNode("GainAuto"));
+		CEnumerationPtr exposureAuto(nodemap.GetNode("ExposureAuto"));
+		CEnumerationPtr exposureMode(nodemap.GetNode("ExposureMode"));
+
+		if (IsWritable(gainAuto))
+		{
+
+			cout << "Setting auto gain to off" << endl;
+			//gainAuto->FromString("Off");
+			cout << "Setting auto exposure to off" << endl;
+			exposureAuto->FromString("Off");
+
+//			GENAPI_NAMESPACE::NodeList_t *Nodes = new NodeList_t(9);
+//			nodemap.GetNodes(*Nodes);
+//			for (int i = 0; i < 9; i++)
+//			{
+//				cout << "Node " << i << " , name " << Nodes->at(i)->GetDisplayName() << endl;
+//			}
+			
+			CFloatPtr gain(nodemap.GetNode("Gain"));
+			double newGain = gain->GetMin()+2;
+			gain->SetValue(newGain);
+
+			//GENAPI_NAMESPACE::INode* exposerureNode = nodemap.GetNode("ExposureTime");
+			double d = CFloatPtr(nodemap.GetNode("ExposureTime"))->GetValue();
+			CFloatPtr(nodemap.GetNode("ExposureTime"))->SetValue(15000.);
+
+		}
+
 		// Create a pylon ImageFormatConverter object.
 		CImageFormatConverter formatConverter;
 		// Specify the output pixel format.
-		formatConverter.OutputPixelFormat= PixelType_BGR8packed;
+		formatConverter.OutputPixelFormat = PixelType_BGR8packed;
 		// Create a PylonImage that will be used to create OpenCV images later.
 		CPylonImage pylonImage;
 		// Declare an integer variable to count the number of grabbed images
@@ -105,9 +144,18 @@ int main(int argc, char* argv[])
 
 		// Set the codec type and the frame rate. You have 3 codec options here.
 		// The frame rate should match or be lower than the camera acquisition frame rate.
-		cvVideoCreator.open(videoFileName, CV_FOURCC('D','I','V','X'), 20, frameSize, true);
-		//cvVideoCreator.open(videoFileName, CV_FOURCC('M','P','4','2'), 20, frameSize, true); 
-		//cvVideoCreator.open(videoFileName, CV_FOURCC('M','J','P','G'), 20, frameSize, true);
+		//cvVideoCreator.open(videoFileName, CV_FOURCC('D','I','V','X'), 30, frameSize, true);
+		//cvVideoCreator.open(videoFileName, CV_FOURCC('M','P','4','2'), 30, frameSize, true); 
+		cvVideoCreator.open(videoFileName, CV_FOURCC('M','J','P','G'), 30, frameSize, true);
+
+
+		// create text file
+
+		ofstream output_timestamps;
+		output_timestamps.open("export_timestamps.csv");
+		output_timestamps << "frame,timestamp,framerate\n";
+
+		///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         // Start the grabbing of c_countOfImagesToGrab images.
         // The camera device is parameterized with a default configuration which
@@ -119,17 +167,33 @@ int main(int argc, char* argv[])
 
         // Camera.StopGrabbing() is called automatically by the RetrieveResult() method
         // when c_countOfImagesToGrab images have been retrieved.
+		int64_t last_tic;
+
         while ( camera.IsGrabbing())
         {
+			CCommandPtr(nodemap.GetNode("TimestampLatch"))->Execute();
+			// Get the timestamp value
+			int64_t tic = CIntegerPtr(nodemap.GetNode("TimestampLatchValue"))->GetValue();
+			if (grabbedImages == 0)
+			{
+				int64_t last_tic = tic;
+			}
+			double framerate_calc = 1000000000. / (tic - last_tic) ;
+			cout << "Framerate: " << framerate_calc << " fps" << endl;
+			output_timestamps << grabbedImages << "," << tic << "," << framerate_calc << "\n";
+
+     		last_tic = tic;
+
             // Wait for an image and then retrieve it. A timeout of 5000 ms is used.
             camera.RetrieveResult( 5000, ptrGrabResult, TimeoutHandling_ThrowException);
 
             // Image grabbed successfully?
             if (ptrGrabResult->GrabSucceeded())
             {
+				grabbedImages++;
                 // Access the image data.
-                cout << "SizeX: " << ptrGrabResult->GetWidth() << endl;
-                cout << "SizeY: " << ptrGrabResult->GetHeight() << endl;
+                //cout << grabbedImages << " | SizeX: " << ptrGrabResult->GetWidth();
+                //cout << " SizeY: " << ptrGrabResult->GetHeight() << endl;
 
 				// Convert the grabbed buffer to a pylon image.
 				formatConverter.Convert(pylonImage, ptrGrabResult);
@@ -145,8 +209,8 @@ int main(int argc, char* argv[])
 					s<< "image_" << grabbedImages << ".jpg";
 					std::string imageName(s.str());
 					// Save an OpenCV image.
-					imwrite(imageName, openCvImage); 		
-					grabbedImages++;
+
+					imwrite(imageName, openCvImage);
 				}
 
 				// Set recordVideo to '1' to record AVI video file.
@@ -154,10 +218,11 @@ int main(int argc, char* argv[])
 					cvVideoCreator.write(openCvImage);
 
 				// Create an OpenCV display window.
-				namedWindow( "OpenCV Display Window", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO
-				
+				namedWindow( "OpenCV Tracker", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
+				resizeWindow("OpenCV Tracker", ptrGrabResult->GetWidth()/2, ptrGrabResult->GetHeight()/2);
+
 				// Display the current image in the OpenCV display window.
-				imshow( "OpenCV Display Window", openCvImage);
+				imshow( "OpenCV Tracker", openCvImage);
 				// Define a timeout for customer's input in ms.
 				// '0' means indefinite, i.e. the next image will be displayed after closing the window. 
 				// '1' means live stream
@@ -165,7 +230,7 @@ int main(int argc, char* argv[])
 
 #ifdef PYLON_WIN_BUILD
                 // Display the grabbed image in pylon.
-                Pylon::DisplayImage(1, ptrGrabResult);
+                //Pylon::DisplayImage(1, ptrGrabResult);
 #endif
             }
             else
@@ -174,6 +239,10 @@ int main(int argc, char* argv[])
             }
         }
 
+		// close timestamp file 
+		output_timestamps.close();
+
+
 		// Release the video file on leaving.
 		if (recordVideo)
 			cvVideoCreator.release();
@@ -181,14 +250,15 @@ int main(int argc, char* argv[])
     catch (GenICam::GenericException &e)
     {
         // Error handling.
-        cerr << "An exception occurred." << endl
+        cout << "An exception occurred." << endl
         << e.GetDescription() << endl;
         exitCode = 1;
     }
 
     // Comment the following two lines to disable waiting on exit.
-    cerr << endl << "Press Enter to exit." << endl;
-    while( cin.get() != '\n');
-
+    //cerr << endl << "Press Enter to exit." << endl;
+    //while( cin.get() != '\n');
+	// Releases all pylon resources. 
+	PylonTerminate();
     return exitCode;
 }
