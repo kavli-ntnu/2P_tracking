@@ -43,6 +43,18 @@
 #    include <pylon/PylonGUI.h>
 #endif
 
+#include "threshold.h"
+
+void on_low_h_thresh_trackbar(int, void *);
+void on_high_h_thresh_trackbar(int, void *);
+void on_low_s_thresh_trackbar(int, void *);
+void on_high_s_thresh_trackbar(int, void *);
+void on_low_v_thresh_trackbar(int, void *);
+void on_high_v_thresh_trackbar(int, void *);
+
+int low_h = 30, low_s = 30, low_v = 30;
+int high_h = 100, high_s = 100, high_v = 100;
+
 // Namespace for using pylon objects.
 using namespace Pylon;
 
@@ -54,11 +66,11 @@ using namespace std;
 
 using namespace GenApi;
 // Number of images to be grabbed.
-static const uint32_t c_countOfImagesToGrab = 100;
+static const uint32_t c_countOfImagesToGrab = 10000;
 
 int main(int argc, char* argv[])
 {
-	
+
 	// The exit code of the sample application.
     int exitCode = 0;
 
@@ -120,10 +132,8 @@ int main(int argc, char* argv[])
 
 		// Create an OpenCV video creator.
 		VideoWriter cvVideoCreator;
-
 		// Define the video file name.
 		std::string videoFileName= "openCvVideo.avi";
-
 		// Define the video frame size.
 		cv::Size frameSize= Size((int)width->GetValue(), (int)height->GetValue());
 
@@ -176,20 +186,18 @@ int main(int argc, char* argv[])
             if (ptrGrabResult->GrabSucceeded())
             {
 				grabbedImages++;
-                // Access the image data.
-                //cout << grabbedImages << " | SizeX: " << ptrGrabResult->GetWidth();
-                //cout << " SizeY: " << ptrGrabResult->GetHeight() << endl;
-
+    
 				// Create an OpenCV image from a grabbed image.
 				cv::Mat mat8_uc3(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3, (uintmax_t *)ptrGrabResult->GetBuffer());
 				cv::Mat mat8_uc3_c(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3); // invert channel order
+			    // start tracking code here.
+				cv::Mat imgYellowThresh = GetThresholdedImage(mat8_uc3_c, ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), low_h, high_h, low_s, high_s, low_v, high_v);
+
 				cv::cvtColor(mat8_uc3, mat8_uc3_c, cv::COLOR_BGR2RGB);
 				cv::Mat scaled_ = mat8_uc3_c * 2; // only for viewing purposes (make it all a bit brighter)
 
-				// start tracking code here.
-
-
 				// Set saveImages to '1' to save images.
+				
 				if (saveImages) {					
 					// Create the current image name for saving.
 					std::ostringstream s;
@@ -208,9 +216,26 @@ int main(int argc, char* argv[])
 				// Create an OpenCV display window.
 				namedWindow( "OpenCV Tracker", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
 				resizeWindow("OpenCV Tracker", ptrGrabResult->GetWidth()/2, ptrGrabResult->GetHeight()/2);
-
 				// Display the current image in the OpenCV display window.
 				imshow( "OpenCV Tracker", scaled_);
+
+				// Create another OpenCV display window.
+				namedWindow("OpenCV Tracker Thresh", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
+				resizeWindow("OpenCV Tracker Thresh", ptrGrabResult->GetWidth() / 2, ptrGrabResult->GetHeight() / 2);
+				// Display the thresh image in the OpenCV display window.
+				imshow("OpenCV Tracker Thresh", imgYellowThresh);
+
+
+
+				//-- Trackbars to set thresholds for HSV values
+				createTrackbar("Low H", "OpenCV Tracker Thresh", &low_h, 255, on_low_h_thresh_trackbar);
+				createTrackbar("High H", "OpenCV Tracker Thresh", &high_h, 255, on_high_h_thresh_trackbar);
+				createTrackbar("Low S", "OpenCV Tracker Thresh", &low_s, 255, on_low_s_thresh_trackbar);
+				createTrackbar("High S", "OpenCV Tracker Thresh", &high_s, 255, on_high_s_thresh_trackbar);
+				createTrackbar("Low V", "OpenCV Tracker Thresh", &low_v, 255, on_low_v_thresh_trackbar);
+				createTrackbar("High V", "OpenCV Tracker Thresh", &high_v, 255, on_high_v_thresh_trackbar);
+
+
 				// Define a timeout for customer's input in ms.
 				// '0' means indefinite, i.e. the next image will be displayed after closing the window. 
 				// '1' means live stream
@@ -249,4 +274,39 @@ int main(int argc, char* argv[])
 	// Releases all pylon resources. 
 	PylonTerminate();
     return exitCode;
+}
+
+
+void on_low_h_thresh_trackbar(int, void *)
+{
+	low_h = min(high_h - 1, low_h);
+	setTrackbarPos("Low H", "Object Detection", low_h);
+}
+void on_high_h_thresh_trackbar(int, void *)
+{
+	high_h = max(high_h, low_h + 1);
+	setTrackbarPos("High H", "Object Detection", high_h);
+}
+
+
+void on_low_s_thresh_trackbar(int, void *)
+{
+	low_s = min(high_s - 1, low_s);
+	setTrackbarPos("Low S", "Object Detection", low_s);
+}
+void on_high_s_thresh_trackbar(int, void *)
+{
+	high_s = max(high_s, low_s + 1);
+	setTrackbarPos("High S", "Object Detection", high_s);
+}
+
+void on_low_v_thresh_trackbar(int, void *)
+{
+	low_v = min(high_v - 1, low_v);
+	setTrackbarPos("Low V", "Object Detection", low_v);
+}
+void on_high_v_thresh_trackbar(int, void *)
+{
+	high_v = max(high_v, low_v + 1);
+	setTrackbarPos("High V", "Object Detection", high_v);
 }
