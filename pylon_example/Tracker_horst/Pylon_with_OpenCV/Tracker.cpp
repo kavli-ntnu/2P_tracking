@@ -53,10 +53,11 @@ void on_low_s_thresh_trackbar(int, void *);
 void on_high_s_thresh_trackbar(int, void *);
 void on_low_v_thresh_trackbar(int, void *);
 void on_high_v_thresh_trackbar(int, void *);
-void FindBlobs(const cv::Mat &binary, std::vector < std::vector<cv::Point2i> > &blobs);
 
-int low_h = 67, low_s = 181, low_v = 77;
-int high_h = 130, high_s = 255, high_v = 220;
+int low_h = 67, low_s = 149, low_v = 42;
+int high_h = 146, high_s = 255, high_v = 95;
+int image_h = 1000;
+int image_w = 1000;
 
 // Namespace for using pylon objects.
 using namespace Pylon;
@@ -102,10 +103,10 @@ int main(int argc, char* argv[])
         // allocated for grabbing. The default value of this parameter is 10.
         camera.MaxNumBuffer = 5;
 
-		CIntegerPtr(nodemap.GetNode("Width"))->SetValue(1000);
-		CIntegerPtr(nodemap.GetNode("Height"))->SetValue(1000);
-		CIntegerPtr(nodemap.GetNode("OffsetX"))->SetValue(500);
-		CIntegerPtr(nodemap.GetNode("OffsetY"))->SetValue(400);
+		CIntegerPtr(nodemap.GetNode("Width"))->SetValue(image_w);
+		CIntegerPtr(nodemap.GetNode("Height"))->SetValue(image_h);
+		CIntegerPtr(nodemap.GetNode("OffsetX"))->SetValue(1064);
+		CIntegerPtr(nodemap.GetNode("OffsetY"))->SetValue(544);
 
 		CEnumerationPtr gainAuto(nodemap.GetNode("GainAuto"));
 		CEnumerationPtr exposureAuto(nodemap.GetNode("ExposureAuto"));
@@ -123,8 +124,8 @@ int main(int argc, char* argv[])
 		gain->SetValue(newGain);
 		// exposure time
 		double d = CFloatPtr(nodemap.GetNode("ExposureTime"))->GetValue();
-		CFloatPtr(nodemap.GetNode("ExposureTime"))->SetValue(15000.);
-		
+		CFloatPtr(nodemap.GetNode("ExposureTime"))->SetValue(20000.);
+
 		// Set the pixel format to _BayerRG12Packed
 		CEnumerationPtr(nodemap.GetNode("PixelFormat"))->FromString("RGB8");
 		//CEnumerationPtr(nodemap.GetNode("PixelFormat"))->FromString("BayerRG12");
@@ -163,7 +164,33 @@ int main(int argc, char* argv[])
 
         // Camera.StopGrabbing() is called automatically by the RetrieveResult() method
         // when c_countOfImagesToGrab images have been retrieved.
+		
+		cv::Mat mat8_uc3_c(1000, 1000, CV_8UC3);
+
+		// start tracking code here.
+		cv::Mat imgHSV(image_h/2, image_w / 2, CV_8UC3);
+		cv::Mat img_thresh(image_h / 2, image_w / 2, CV_8U);
+		cv::Mat img_thresh2(image_h / 2, image_w / 2, CV_8U);
+		cv::Mat img_thresh3(image_h / 2, image_w / 2, CV_8U);
+		cv::Mat imgScribble(image_h / 2, image_w / 2, CV_8UC3);
+
+		cv::Mat labelImage(image_h / 2, image_w / 2, CV_32S);
+		cv::Mat stats(image_h / 2, image_w / 2, CV_32S);
+		cv::Mat centroids(image_h / 2, image_w / 2, CV_32S);
 		int64_t last_tic;
+
+		namedWindow("OpenCV Tracker", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
+		resizeWindow("OpenCV Tracker", 500, 500);
+		// Create another OpenCV display window.
+		namedWindow("OpenCV Tracker Thresh", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
+		resizeWindow("OpenCV Tracker Thresh", 500,900);
+		//-- Trackbars to set thresholds for HSV values
+		createTrackbar("Low H", "OpenCV Tracker Thresh", &low_h, 255, on_low_h_thresh_trackbar);
+		createTrackbar("High H", "OpenCV Tracker Thresh", &high_h, 255, on_high_h_thresh_trackbar);
+		createTrackbar("Low S", "OpenCV Tracker Thresh", &low_s, 255, on_low_s_thresh_trackbar);
+		createTrackbar("High S", "OpenCV Tracker Thresh", &high_s, 255, on_high_s_thresh_trackbar);
+		createTrackbar("Low V", "OpenCV Tracker Thresh", &low_v, 255, on_low_v_thresh_trackbar);
+		createTrackbar("High V", "OpenCV Tracker Thresh", &high_v, 255, on_high_v_thresh_trackbar);
 
         while ( camera.IsGrabbing())
         {
@@ -189,17 +216,13 @@ int main(int argc, char* argv[])
 				grabbedImages++;
     
 				// Create an OpenCV image from a grabbed image.
-				cv::Mat mat8_uc3(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3, (uintmax_t *)ptrGrabResult->GetBuffer());
-				cv::Mat mat8_uc3_c(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3); 
-			    
-				// start tracking code here.
-				cv::Mat imgHSV(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3);
-				cv::cvtColor(mat8_uc3, imgHSV, CV_BGR2HSV); // convert to HSV
-				cv::Mat img_thresh(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8U);
-				cv::Mat img_thresh2(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8U);
-				cv::Mat img_thresh3(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8U);
-				cv::Mat imgScribble(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3);
+				cv::Mat mat8_uc3(image_h, image_w, CV_8UC3, (uintmax_t *)ptrGrabResult->GetBuffer());
+				cv::Mat mat8_uc3_2;
 
+				Size size(500, 500);// resize
+				resize(mat8_uc3, mat8_uc3_2, size);//resize image
+
+				cv::cvtColor(mat8_uc3_2, imgHSV, CV_BGR2HSV); // convert to HSV
 				cv::inRange(imgHSV, Scalar(low_h, low_s, low_v), Scalar(high_h, high_s, high_v), img_thresh); // threshold!
 				cout << low_h << " | " << high_h << " _ " << low_s << " | " << high_s << " _ "<< low_v << " | " << high_v << " | framerate: " << framerate_calc <<  endl;
 
@@ -211,14 +234,10 @@ int main(int argc, char* argv[])
 
 				int operation = 3;
 				Mat element = getStructuringElement(morph_elem, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
-				morphologyEx(img_thresh, img_thresh2, operation, element);
-				operation = 2;
-				element = getStructuringElement(morph_elem, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
-				morphologyEx(img_thresh2, img_thresh3, operation, element);
-
-				Mat labelImage(img_thresh3.size(), CV_32S);
-				Mat stats(img_thresh3.size(), CV_32S);
-				Mat centroids(img_thresh3.size(), CV_32S);
+				morphologyEx(img_thresh, img_thresh3, operation, element);
+				//operation = 2;
+				//element = getStructuringElement(morph_elem, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
+				//morphologyEx(img_thresh2, img_thresh3, operation, element);
 
 				// extract connected components and statistics
 				int nLabels = connectedComponentsWithStats(img_thresh3, labelImage, stats, centroids, 8, CV_32S);
@@ -229,9 +248,8 @@ int main(int argc, char* argv[])
 					colors[label] = Vec3b((255), (255), (255));
 					Point pt = Point(centroids.at<double>(label, 0), centroids.at<double>(label, 1));
 					//cout << "Label " << label << "   " << (cv::Point)(centroids.at<double>(label, 0), centroids.at<double>(label, 1)) << endl;
-					circle(imgScribble, pt, 10, cvScalar(0, 255, 255), 2);
+					circle(imgScribble, pt, 3, cvScalar(0, 255, 150), 1);
 				}
-
 
 				// invert channel order
 				cv::cvtColor(mat8_uc3, mat8_uc3_c, cv::COLOR_BGR2RGB);
@@ -255,25 +273,8 @@ int main(int argc, char* argv[])
 					cvVideoCreator.write(scaled_);
 
 				// Create an OpenCV display window.
-				namedWindow( "OpenCV Tracker", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
-				resizeWindow("OpenCV Tracker", ptrGrabResult->GetWidth()/2, ptrGrabResult->GetHeight()/2);
-				// Display the current image in the OpenCV display window.
 				imshow( "OpenCV Tracker", scaled_);
-
-				// Create another OpenCV display window.
-				namedWindow("OpenCV Tracker Thresh", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
-				resizeWindow("OpenCV Tracker Thresh", ptrGrabResult->GetWidth() / 2, ptrGrabResult->GetHeight() / 2);
-				// Display the thresh image in the OpenCV display window.
 				imshow("OpenCV Tracker Thresh", imgScribble);
-
-				//-- Trackbars to set thresholds for HSV values
-				createTrackbar("Low H", "OpenCV Tracker Thresh", &low_h, 255, on_low_h_thresh_trackbar);
-				createTrackbar("High H", "OpenCV Tracker Thresh", &high_h, 255, on_high_h_thresh_trackbar);
-				createTrackbar("Low S", "OpenCV Tracker Thresh", &low_s, 255, on_low_s_thresh_trackbar);
-				createTrackbar("High S", "OpenCV Tracker Thresh", &high_s, 255, on_high_s_thresh_trackbar);
-				createTrackbar("Low V", "OpenCV Tracker Thresh", &low_v, 255, on_low_v_thresh_trackbar);
-				createTrackbar("High V", "OpenCV Tracker Thresh", &high_v, 255, on_high_v_thresh_trackbar);
-
 
 				// Define a timeout for customer's input in ms.
 				// '0' means indefinite, i.e. the next image will be displayed after closing the window. 
