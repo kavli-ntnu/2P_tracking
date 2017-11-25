@@ -36,6 +36,8 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
+#include <opencv2/features2d.hpp>
+
 
 // Include files to use the PYLON API.
 #include <pylon/PylonIncludes.h>
@@ -51,9 +53,10 @@ void on_low_s_thresh_trackbar(int, void *);
 void on_high_s_thresh_trackbar(int, void *);
 void on_low_v_thresh_trackbar(int, void *);
 void on_high_v_thresh_trackbar(int, void *);
+void FindBlobs(const cv::Mat &binary, std::vector < std::vector<cv::Point2i> > &blobs);
 
-int low_h = 30, low_s = 30, low_v = 30;
-int high_h = 100, high_s = 100, high_v = 100;
+int low_h = 67, low_s = 181, low_v = 77;
+int high_h = 130, high_s = 255, high_v = 220;
 
 // Namespace for using pylon objects.
 using namespace Pylon;
@@ -144,7 +147,6 @@ int main(int argc, char* argv[])
 		cvVideoCreator.open(videoFileName, CV_FOURCC('M','J','P','G'), 30, frameSize, true);
 
 		// create text file
-
 		ofstream output_timestamps;
 		output_timestamps.open("export_timestamps.csv");
 		output_timestamps << "frame,timestamp,framerate\n";
@@ -158,7 +160,6 @@ int main(int argc, char* argv[])
 
         // This smart pointer will receive the grab result data.
         CGrabResultPtr ptrGrabResult;
-
 
         // Camera.StopGrabbing() is called automatically by the RetrieveResult() method
         // when c_countOfImagesToGrab images have been retrieved.
@@ -174,7 +175,7 @@ int main(int argc, char* argv[])
 				int64_t last_tic = tic;
 			}
 			double framerate_calc = 1000000000. / (tic - last_tic) ; // GHz
-			cout << grabbedImages << "| Framerate: " << framerate_calc << " fps" << endl;
+			//cout << grabbedImages << "| Framerate: " << framerate_calc << " fps" << endl;
 			output_timestamps << grabbedImages << "," << tic << "," << framerate_calc << "\n";
 
      		last_tic = tic;
@@ -189,10 +190,50 @@ int main(int argc, char* argv[])
     
 				// Create an OpenCV image from a grabbed image.
 				cv::Mat mat8_uc3(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3, (uintmax_t *)ptrGrabResult->GetBuffer());
-				cv::Mat mat8_uc3_c(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3); // invert channel order
-			    // start tracking code here.
-				cv::Mat imgYellowThresh = GetThresholdedImage(mat8_uc3_c, ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), low_h, high_h, low_s, high_s, low_v, high_v);
+				cv::Mat mat8_uc3_c(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3); 
+			    
+				// start tracking code here.
+				cv::Mat imgHSV(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3);
+				cv::cvtColor(mat8_uc3, imgHSV, CV_BGR2HSV); // convert to HSV
+				cv::Mat img_thresh(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8U);
+				cv::Mat img_thresh2(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8U);
+				cv::Mat img_thresh3(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8U);
+				cv::Mat imgScribble(ptrGrabResult->GetHeight(), ptrGrabResult->GetWidth(), CV_8UC3);
 
+				cv::inRange(imgHSV, Scalar(low_h, low_s, low_v), Scalar(high_h, high_s, high_v), img_thresh); // threshold!
+				cout << low_h << " | " << high_h << " _ " << low_s << " | " << high_s << " _ "<< low_v << " | " << high_v << " | framerate: " << framerate_calc <<  endl;
+
+				int morph_elem = 2;
+				int morph_size = 10;
+				int const max_operator = 4;
+				int const max_elem = 2;
+				int const max_kernel_size = 21;
+
+				int operation = 3;
+				Mat element = getStructuringElement(morph_elem, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
+				morphologyEx(img_thresh, img_thresh2, operation, element);
+				operation = 2;
+				element = getStructuringElement(morph_elem, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
+				morphologyEx(img_thresh2, img_thresh3, operation, element);
+
+				Mat labelImage(img_thresh3.size(), CV_32S);
+				Mat stats(img_thresh3.size(), CV_32S);
+				Mat centroids(img_thresh3.size(), CV_32S);
+
+				// extract connected components and statistics
+				int nLabels = connectedComponentsWithStats(img_thresh3, labelImage, stats, centroids, 8, CV_32S);
+
+				std::vector<Vec3b> colors(nLabels);
+				colors[0] = Vec3b(0, 0, 0); //background
+				for (int label = 1; label < nLabels; ++label) {
+					colors[label] = Vec3b((255), (255), (255));
+					Point pt = Point(centroids.at<double>(label, 0), centroids.at<double>(label, 1));
+					//cout << "Label " << label << "   " << (cv::Point)(centroids.at<double>(label, 0), centroids.at<double>(label, 1)) << endl;
+					circle(imgScribble, pt, 10, cvScalar(0, 255, 255), 2);
+				}
+
+
+				// invert channel order
 				cv::cvtColor(mat8_uc3, mat8_uc3_c, cv::COLOR_BGR2RGB);
 				cv::Mat scaled_ = mat8_uc3_c * 2; // only for viewing purposes (make it all a bit brighter)
 
@@ -223,9 +264,7 @@ int main(int argc, char* argv[])
 				namedWindow("OpenCV Tracker Thresh", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
 				resizeWindow("OpenCV Tracker Thresh", ptrGrabResult->GetWidth() / 2, ptrGrabResult->GetHeight() / 2);
 				// Display the thresh image in the OpenCV display window.
-				imshow("OpenCV Tracker Thresh", imgYellowThresh);
-
-
+				imshow("OpenCV Tracker Thresh", imgScribble);
 
 				//-- Trackbars to set thresholds for HSV values
 				createTrackbar("Low H", "OpenCV Tracker Thresh", &low_h, 255, on_low_h_thresh_trackbar);
@@ -310,3 +349,4 @@ void on_high_v_thresh_trackbar(int, void *)
 	high_v = max(high_v, low_v + 1);
 	setTrackbarPos("High V", "Object Detection", high_v);
 }
+
