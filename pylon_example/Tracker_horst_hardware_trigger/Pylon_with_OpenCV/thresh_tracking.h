@@ -5,4 +5,5 @@
 #include <opencv2/video/video.hpp>
 
 
-cv::Mat GetThresholdedImage(cv::Mat img, uint low_h, uint high_h, uint low_s, uint high_s, uint low_v, uint high_v);
+cv::Mat GetThresholdedImage(cv::Mat img, const int scale_factor, uint red_h_low, uint red_s_low, uint red_v_low, uint red_h_high, uint red_s_high, uint red_v_high,
+	uint green_h_low, uint green_s_low, uint green_v_low, uint green_h_high, uint green_s_high, uint green_v_high);

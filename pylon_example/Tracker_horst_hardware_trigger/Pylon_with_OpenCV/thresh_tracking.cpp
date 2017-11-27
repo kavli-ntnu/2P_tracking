@@ -7,31 +7,29 @@
 using namespace cv;
 using namespace std;
 
-cv::Mat GetThresholdedImage(cv::Mat img, uint low_h, uint high_h, uint low_s, uint high_s, uint low_v, uint high_v)
+cv::Mat GetThresholdedImage(cv::Mat img, const int scale_factor, uint red_h_low, uint red_s_low, uint red_v_low, uint red_h_high, uint red_s_high, uint red_v_high,
+	uint green_h_low, uint green_s_low, uint green_v_low, uint green_h_high, uint green_s_high, uint green_v_high)
 {
 	// Create an OpenCV image from a grabbed image.
-	cv::Mat mat8_uc3_2(img.size() / 2, CV_8UC3);
-	cv::Mat imgHSV(img.size() / 2, CV_8UC3);
-	cv::Mat img_thresh_green(img.size() /2, CV_8UC3);
-	cv::Mat img_thresh_green2(img.size() / 2, CV_8UC3);
+	cv::Mat mat8_uc3_2(img.size() / scale_factor, CV_8UC3);
+	cv::Mat imgHSV(img.size() / scale_factor, CV_8UC3);
+	cv::Mat img_thresh_green(img.size() / scale_factor, CV_8UC3);
+	cv::Mat img_thresh_green2(img.size() / scale_factor, CV_8UC3);
 
-	cv::Mat img_thresh_red(img.size() / 2, CV_8UC3);
-	cv::Mat img_thresh_red2(img.size() / 2, CV_8UC3);
+	cv::Mat img_thresh_red(img.size() / scale_factor, CV_8UC3);
+	cv::Mat img_thresh_red2(img.size() / scale_factor, CV_8UC3);
 
-	//cv::Mat img_scribble(img.size() / 4, CV_8UC3);
 
 	// tracking points: 
 	Mat tracking_points = Mat(2, 2, CV_64F, double(0));
 
-	Size size(500, 500);// resize
+	Size size(500, 500);// resize (one third of original image size!)
 	resize(img, mat8_uc3_2, size);//resize image
 
 	cv::cvtColor(mat8_uc3_2, imgHSV, CV_BGR2HSV); // convert to HSV
 
-	cv::inRange(imgHSV, Scalar(116, 233, 48), Scalar(129, 255, 255), img_thresh_red); // threshold!
-	cv::inRange(imgHSV, Scalar(0, 94, 85), Scalar(74, 255, 255), img_thresh_green); // threshold!
-	//cv::inRange(imgHSV, Scalar(low_h, low_s, low_v), Scalar(high_h, high_s, high_v), img_thresh_red); // threshold!
-	//cout << low_h << " | " << high_h << " _ " << low_s << " | " << high_s << " _ " << low_v << " | " << high_v << " |   " << endl;
+	cv::inRange(imgHSV, Scalar(red_h_low, red_s_low, red_v_low), Scalar(red_h_high, red_s_high, red_v_high), img_thresh_red); // threshold!
+	cv::inRange(imgHSV, Scalar(green_h_low, green_s_low, green_v_low), Scalar(green_h_high, green_s_high, green_v_high), img_thresh_green); // threshold!
 
 	int morph_elem = 2;
 	int morph_size = 3;
@@ -44,9 +42,9 @@ cv::Mat GetThresholdedImage(cv::Mat img, uint low_h, uint high_h, uint low_s, ui
 	morphologyEx(img_thresh_green, img_thresh_green2, operation, element);
 
 	// extract connected components and statistics
-	cv::Mat labelImage_red(img.size() / 4, CV_8UC3);
-	cv::Mat stats_red(img.size() / 4, CV_32S);
-	cv::Mat centroids_red(img.size() / 4, CV_32S);
+	cv::Mat labelImage_red(img.size() / scale_factor, CV_8UC3);
+	cv::Mat stats_red(img.size() / scale_factor, CV_32S);
+	cv::Mat centroids_red(img.size() / scale_factor, CV_32S);
 	int nLabels_red = connectedComponentsWithStats(img_thresh_red2, labelImage_red, stats_red, centroids_red, 8, CV_32S);
 	std::vector<Vec3b> colors(nLabels_red);
 	colors[0] = Vec3b(0, 0, 0); //background
@@ -60,9 +58,9 @@ cv::Mat GetThresholdedImage(cv::Mat img, uint low_h, uint high_h, uint low_s, ui
 		tracking_points.at<double>(0, 1) = centroids_red.at<double>(label, 1);
 	}
 
-	cv::Mat labelImage_green(img.size() / 4, CV_8UC3);
-	cv::Mat stats_green(img.size() / 4, CV_32S);
-	cv::Mat centroids_green(img.size() / 4, CV_32S);
+	cv::Mat labelImage_green(img.size() / scale_factor, CV_8UC3);
+	cv::Mat stats_green(img.size() / scale_factor, CV_32S);
+	cv::Mat centroids_green(img.size() / scale_factor, CV_32S);
 	int nLabels_green = connectedComponentsWithStats(img_thresh_green2, labelImage_green, stats_green, centroids_green, 8, CV_32S);
 	colors[0] = Vec3b(0, 0, 0); //background
 	for (int label = 1; label < nLabels_green; ++label) {

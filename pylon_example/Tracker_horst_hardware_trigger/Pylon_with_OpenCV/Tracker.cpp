@@ -29,13 +29,6 @@
 #include <vector>
 
 
-// Define if images are to be saved.
-// '0'- no; '1'- yes.
-#define saveImages 0
-// Define if video is to be recorded.
-// '0'- no; '1'- yes.
-#define recordVideo 0
-
 // Include files to use OpenCV API.
 #include <opencv2/core/core.hpp>
 
@@ -51,6 +44,12 @@
 #endif
 
 #include "thresh_tracking.h"
+#include "init_func.h"
+
+//Global variables
+char ImagePath[250];
+// Number of images to be grabbed.
+static const uint32_t c_countOfImagesToGrab = 2000;
 
 //void on_low_h_thresh_trackbar(int, void *);
 //void on_high_h_thresh_trackbar(int, void *);
@@ -58,36 +57,62 @@
 //void on_high_s_thresh_trackbar(int, void *);
 //void on_low_v_thresh_trackbar(int, void *);
 //void on_high_v_thresh_trackbar(int, void *);
-
+// if trackbar:
 int low_h = 116, low_s = 250, low_v = 2;
 int high_h = 129, high_s = 255, high_v = 189;
 
 
-int image_h = 1000;
-int image_w = 1000;
-
 // Namespace for using pylon objects.
 using namespace Pylon;
-
 // Namespace for using OpenCV objects.
 using namespace cv;
 // Namespace for using cout.
 using namespace std;
-
 using namespace GenApi;
-// Number of images to be grabbed.
-static const uint32_t c_countOfImagesToGrab = 2000;
+
+
 
 int main(int argc, char* argv[])
 {
 
 	// The exit code of the sample application.
     int exitCode = 0;
+	int retval = 0;
+	int exposure_time = 3000;
+	int delay_us = 0;
+	int debouncer_us = 0;
+	int gain_increase = 0;
+	int saveImages = 0;
+	int recordVideo = 0;
+	int acq_frame_height;
+	int acq_frame_width;
+	int scale_factor;
+	int red_h_low;
+	int red_s_low;
+	int red_v_low;
+	int red_h_high;
+	int red_s_high;
+	int red_v_high;
+	int green_h_low;
+	int green_s_low;
+	int green_v_low;
+	int green_h_high;
+	int green_s_high;
+	int green_v_high;
+
+	cout << "Reading ini-file..." << endl;
+	retval = init(exposure_time, delay_us, gain_increase, debouncer_us, saveImages, recordVideo,
+		acq_frame_height, acq_frame_width, scale_factor,
+		red_h_low,red_s_low, red_v_low, red_h_high, red_s_high, red_v_high,
+		green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high);
 
     // Automagically call PylonInitialize and PylonTerminate to ensure the pylon runtime system
     // is initialized during the lifetime of this object.
     Pylon::PylonAutoInitTerm autoInitTerm;
 	//PylonInitialize(); // has a matching "Terminate" statement at the very end.
+	SYSTEMTIME st;
+	GetLocalTime(&st);	//GetSystemTime(&st);
+	cout << "Started: " << st.wYear << "-" <<  st.wMonth << "-" << st.wDay << " " << st.wHour  << ":" <<  st.wMinute << ":" << st.wSecond << endl;
 
     try
     {
@@ -105,12 +130,10 @@ int main(int argc, char* argv[])
 		// The parameter MaxNumBuffer can be used to control the count of buffers
         // allocated for grabbing. The default value of this parameter is 10.
         camera.MaxNumBuffer = 10;
-		CIntegerPtr(nodemap.GetNode("Width"))->SetValue(image_w);
-		CIntegerPtr(nodemap.GetNode("Height"))->SetValue(image_h);
-		CIntegerPtr(nodemap.GetNode("OffsetX"))->SetValue(1064);
-		CIntegerPtr(nodemap.GetNode("OffsetY"))->SetValue(544);
-		CIntegerPtr width = nodemap.GetNode("Width");
-		CIntegerPtr height = nodemap.GetNode("Height");
+		CIntegerPtr(nodemap.GetNode("Width"))->SetValue(acq_frame_width);
+		CIntegerPtr(nodemap.GetNode("Height"))->SetValue(acq_frame_height);
+		CIntegerPtr(nodemap.GetNode("OffsetX"))->SetValue(0);
+		CIntegerPtr(nodemap.GetNode("OffsetY"))->SetValue(0);
 		CEnumerationPtr gainAuto(nodemap.GetNode("GainAuto"));
 		CEnumerationPtr exposureAuto(nodemap.GetNode("ExposureAuto"));
 		CEnumerationPtr exposureMode(nodemap.GetNode("ExposureMode"));
@@ -121,11 +144,11 @@ int main(int argc, char* argv[])
 		cout << "Setting auto exposure to off" << endl;
 		exposureAuto->FromString("Off");
 		CFloatPtr gain(nodemap.GetNode("Gain"));
-		double newGain = gain->GetMin()+2;
+		double newGain = gain->GetMin() + gain_increase;
+		cout << "Setting gain to " << newGain <<  endl;
 		gain->SetValue(newGain);
 		// exposure time
-		double d = CFloatPtr(nodemap.GetNode("ExposureTime"))->GetValue();
-		CFloatPtr(nodemap.GetNode("ExposureTime"))->SetValue(20000.);
+		CFloatPtr(nodemap.GetNode("ExposureTime"))->SetValue(exposure_time);
 
 		// Set the pixel format to RGB8 8bit
 		CEnumerationPtr(nodemap.GetNode("PixelFormat"))->FromString("RGB8");
@@ -139,18 +162,16 @@ int main(int argc, char* argv[])
 		// Define the video file name.
 		std::string videoFileName= "openCvVideo.avi";
 		// Define the video frame size.
-		cv::Size frameSize= Size((int)width->GetValue(), (int)height->GetValue());
+		cv::Size frameSize= Size(acq_frame_width, acq_frame_height);
 
 		// Set the codec type and the frame rate. You have 3 codec options here.
 		// The frame rate should match or be lower than the camera acquisition frame rate.
-		//cvVideoCreator.open(videoFileName, CV_FOURCC('D','I','V','X'), 30, frameSize, true);
-		//cvVideoCreator.open(videoFileName, CV_FOURCC('M','P','4','2'), 30, frameSize, true); 
-		cvVideoCreator.open(videoFileName, CV_FOURCC('M','J','P','G'), 30, frameSize, true);
+		cvVideoCreator.open(videoFileName, CV_FOURCC('M','J','P','G'), 30, frameSize, true); // 'M','P','4','2' , 'D','I','V','X'
 
 		// create text file
 		ofstream output_timestamps;
 		output_timestamps.open("export_timestamps.csv");
-		output_timestamps << "frame,timestamp,framerate\n";
+		output_timestamps << "frame,timestamp,green_x,green_y,red_x,red_y\n";
 
 		///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -165,7 +186,7 @@ int main(int argc, char* argv[])
         // Camera.StopGrabbing() is called automatically by the RetrieveResult() method
         // when c_countOfImagesToGrab images have been retrieved.
 		
-		cv::Mat mat8_uc3_c(1000, 1000, CV_8UC3);
+		cv::Mat mat8_uc3_c(acq_frame_height, acq_frame_width, CV_8UC3);
 
 		// start tracking code here.
 
@@ -177,13 +198,6 @@ int main(int argc, char* argv[])
 		namedWindow("OpenCV Tracker Thresh", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
 		//resizeWindow("OpenCV Tracker Thresh", 500,885);
 		resizeWindow("OpenCV Tracker Thresh", 500, 500);
-		//-- Trackbars to set thresholds for HSV values
-		//createTrackbar("Low H", "OpenCV Tracker Thresh", &low_h, 255, on_low_h_thresh_trackbar);
-		//createTrackbar("High H", "OpenCV Tracker Thresh", &high_h, 255, on_high_h_thresh_trackbar);
-		//createTrackbar("Low S", "OpenCV Tracker Thresh", &low_s, 255, on_low_s_thresh_trackbar);
-		//createTrackbar("High S", "OpenCV Tracker Thresh", &high_s, 255, on_high_s_thresh_trackbar);
-		//createTrackbar("Low V", "OpenCV Tracker Thresh", &low_v, 255, on_low_v_thresh_trackbar);
-		//createTrackbar("High V", "OpenCV Tracker Thresh", &high_v, 255, on_high_v_thresh_trackbar);
 
 		cv::Mat tracking_result; // what comes out of the actual tracking function 
 		vector<double> g_x;
@@ -200,9 +214,8 @@ int main(int argc, char* argv[])
 			{
 				int64_t last_tic = tic;
 			}
-			double framerate_calc = 1/((tic - last_tic)/ 1000000000.); // GHz
-			cout << grabbedImages << "| Framerate: " << framerate_calc << " fps" << endl;
-			output_timestamps << grabbedImages << "," << tic << "," << framerate_calc << "\n";
+			double framerate_calc = 1/((tic - last_tic) / 1000000000.); // GHz
+			//cout << grabbedImages << "| Framerate: " << framerate_calc << " fps" << endl;
 
      		last_tic = tic;
 
@@ -214,21 +227,28 @@ int main(int argc, char* argv[])
             {
 				grabbedImages++;
 				// Create an OpenCV image from a grabbed image.
-				cv::Mat mat8_uc3(image_h, image_w, CV_8UC3, (uintmax_t *)ptrGrabResult->GetBuffer());
-				Size size(500, 500);// resize
-				cv::Mat mat8_uc3_small(image_h, image_w, CV_8UC3);
+				cv::Mat mat8_uc3(acq_frame_height, acq_frame_width, CV_8UC3, (uintmax_t *)ptrGrabResult->GetBuffer());
+				Size size(acq_frame_height/scale_factor, acq_frame_width / scale_factor); // resize
+				cv::Mat mat8_uc3_small(acq_frame_height, acq_frame_width, CV_8UC3);
 				resize(mat8_uc3, mat8_uc3_small, size);//resize image
-				mat8_uc3_small = mat8_uc3_small / 20; // scale so it's black
+				mat8_uc3_small = mat8_uc3_small / 20; // scale brigthness so it's black
 
 				// Start tracking here 
-				tracking_result = GetThresholdedImage(mat8_uc3, low_h, high_h, low_s, high_s, low_v, high_v);
+				tracking_result = GetThresholdedImage(mat8_uc3, scale_factor, red_h_low, red_s_low, red_v_low, 
+					red_h_high, red_s_high, red_v_high, green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high);
+
 				// draw tracking
 				Point pt_green = Point(tracking_result.at<double>(0, 0), tracking_result.at<double>(0, 1));
-				circle(mat8_uc3_small, pt_green, 1, cvScalar(0, 0, 255), 1);
+				circle(mat8_uc3_small, pt_green, 1, cvScalar(0, 0, 255), 1.5);
 				Point pt_red = Point(tracking_result.at<double>(1, 0), tracking_result.at<double>(1, 1));
-				circle(mat8_uc3_small, pt_red, 1, cvScalar(0, 255, 0), 1);
+				circle(mat8_uc3_small, pt_red, 1, cvScalar(0, 255, 0), 1.5);
 
-				g_x.push_back(tracking_result.at<double>(0, 0));
+				// save:
+				output_timestamps << grabbedImages << "," << tic << "," << tracking_result.at<double>(0, 0) << "," <<
+					tracking_result.at<double>(0, 1) << "," << tracking_result.at<double>(1, 0) << "," 
+					 << tracking_result.at<double>(1, 1) << "\n";
+
+				g_x.push_back(tracking_result.at<double>(0, 0)); 
 				r_x.push_back(tracking_result.at<double>(1, 0));
 				g_y.push_back(tracking_result.at<double>(0, 1));
 				r_y.push_back(tracking_result.at<double>(1, 1));
@@ -236,9 +256,9 @@ int main(int argc, char* argv[])
 				for (int i = 0; i < g_x.size(); i++)
 				{
 					pt_green = Point(g_x.at(i), g_y.at(i));
-					circle(mat8_uc3_small, pt_green, 1, cvScalar(0, 0, 250), .5);
+					circle(mat8_uc3_small, pt_green, 1, cvScalar(0, 0, 250), 1);
 					pt_red = Point(r_x.at(i), r_y.at(i));
-					circle(mat8_uc3_small, pt_red, 1, cvScalar(0, 250, 0), .5);
+					circle(mat8_uc3_small, pt_red, 1, cvScalar(0, 250, 0), 1);
 				}
 
 				// invert channel order
@@ -250,7 +270,7 @@ int main(int argc, char* argv[])
 					// Create the current image name for saving.
 					std::ostringstream s;
 					// Create image name files with ascending grabbed image numbers.
-					s<< "export/image_" << grabbedImages << ".jpg";
+					s << "export/image_" << grabbedImages << ".jpg";
 					std::string imageName(s.str());
 					// Save an OpenCV image.
 					imwrite(imageName, mat8_uc3_c);
@@ -259,10 +279,11 @@ int main(int argc, char* argv[])
 				// Set recordVideo to '1' to record AVI video file.
 				if (recordVideo)
 					cvVideoCreator.write(scaled_);
+
+				// Burn framerate into image
 				std::ostringstream strs;
 				strs << framerate_calc;
 				std::string str = strs.str();
-
 				putText(mat8_uc3_small, str, cvPoint(3, 15),
 					FONT_HERSHEY_SIMPLEX, 0.3, cvScalar(255, 255, 255), 0, CV_AA);
 				// Create an OpenCV display window.
@@ -305,38 +326,3 @@ int main(int argc, char* argv[])
 	//PylonTerminate();
     return exitCode;
 }
-
-
-//void on_low_h_thresh_trackbar(int, void *)
-//{
-//	low_h = min(high_h - 1, low_h);
-//	setTrackbarPos("Low H", "Object Detection", low_h);
-//}
-//void on_high_h_thresh_trackbar(int, void *)
-//{
-//	high_h = max(high_h, low_h + 1);
-//	setTrackbarPos("High H", "Object Detection", high_h);
-//}
-//
-//
-//void on_low_s_thresh_trackbar(int, void *)
-//{
-//	low_s = min(high_s - 1, low_s);
-//	setTrackbarPos("Low S", "Object Detection", low_s);
-//}
-//void on_high_s_thresh_trackbar(int, void *)
-//{
-//	high_s = max(high_s, low_s + 1);
-//	setTrackbarPos("High S", "Object Detection", high_s);
-//}
-//
-//void on_low_v_thresh_trackbar(int, void *)
-//{
-//	low_v = min(high_v - 1, low_v);
-//	setTrackbarPos("Low V", "Object Detection", low_v);
-//}
-//void on_high_v_thresh_trackbar(int, void *)
-//{
-//	high_v = max(high_v, low_v + 1);
-//	setTrackbarPos("High V", "Object Detection", high_v);
-//}
