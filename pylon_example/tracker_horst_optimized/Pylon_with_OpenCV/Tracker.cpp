@@ -28,6 +28,15 @@
 #include <fstream>
 #include <vector>
 
+// Include files to use the PYLON API.
+#include <pylon/PylonIncludes.h>
+#ifdef PYLON_WIN_BUILD
+#    include <pylon/PylonGUI.h>
+#endif
+
+// Include files used by samples.
+#include "ConfigurationEventPrinter.h"
+#include "CameraEventPrinter.h"
 
 // Include files to use OpenCV API.
 #include <opencv2/core/core.hpp>
@@ -37,26 +46,58 @@
 #include <opencv2/features2d.hpp>
 #include "opencv2/core/cvdef.h"
 
-// Include files to use the PYLON API.
-#include <pylon/PylonIncludes.h>
-#ifdef PYLON_WIN_BUILD
-#    include <pylon/PylonGUI.h>
-#endif
 
 #include "thresh_tracking.h"
 #include "init_func.h"
 
-// Number of images to be grabbed.
-static const uint32_t c_countOfImagesToGrab = 2000;
-
-// Namespace for using pylon objects.
+#include <pylon/usb/BaslerUsbInstantCamera.h>
 using namespace Pylon;
+
+// Settings for using Basler USB cameras.
+#include <pylon/usb/BaslerUsbInstantCamera.h>
+typedef Pylon::CBaslerUsbInstantCamera Camera_t;
+typedef CBaslerUsbCameraEventHandler CameraEventHandler_t; // Or use Camera_t::CameraEventHandler_t
+using namespace Basler_UsbCameraParams;
+
+
 // Namespace for using OpenCV objects.
 using namespace cv;
 // Namespace for using cout.
 using namespace std;
 using namespace GenApi;
 
+// Number of images to be grabbed.
+static const uint32_t c_countOfImagesToGrab = 100;
+vector<double> framerate_vec;
+vector<double> frame_id_vec;
+
+//Enumeration used for distinguishing different events.
+enum MyEvents
+{
+	ExposureEndEvent = 100
+	// More events can be added here.
+};
+
+// Example handler for camera events.
+class CSampleCameraEventHandler : public CameraEventHandler_t
+{
+public:
+	virtual void OnCameraEvent(Camera_t& camera, intptr_t userProvidedId, GenApi::INode* /* pNode */)
+	{
+		switch (userProvidedId)
+		{
+		case ExposureEndEvent: // Exposure End event
+			int64_t tic = camera.EventExposureEndTimestamp.GetValue();
+			cout << "Exposure End event. FrameID: " << camera.EventExposureEndFrameID.GetValue() << " Timestamp: " << tic << endl;
+			frame_id_vec.push_back(camera.EventExposureEndFrameID.GetValue());
+			framerate_vec.push_back(tic);
+			break;
+			// More events can be added here.
+		}
+	}
+};
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
 {
@@ -96,15 +137,25 @@ int main(int argc, char* argv[])
     // Automagically call PylonInitialize and PylonTerminate to ensure the pylon runtime system
     // is initialized during the lifetime of this object.
     Pylon::PylonAutoInitTerm autoInitTerm;
-	//PylonInitialize(); // has a matching "Terminate" statement at the very end.
 	SYSTEMTIME st;
 	GetLocalTime(&st);	//GetSystemTime(&st);
 	cout << endl << endl << "Started: " << st.wYear << "-" <<  st.wMonth << "-" << st.wDay << " " << st.wHour  << ":" <<  st.wMinute << ":" << st.wSecond << endl;
 
+	// Create an example event handler. In the present case, we use one single camera handler for handling multiple camera events.
+	// The handler prints a message for each received event.
+	CSampleCameraEventHandler* Handler_exposure_ev = new CSampleCameraEventHandler;
+
     try
     {
+		CDeviceInfo info;
+		info.SetDeviceClass(Camera_t::DeviceClass());
         // Create an instant camera object with the camera device found first.
-        CInstantCamera camera( CTlFactory::GetInstance().CreateFirstDevice());
+		Camera_t camera( CTlFactory::GetInstance().CreateFirstDevice());
+
+		// ENABLE HARDWARE TRIGGERING HERE
+
+		camera.GrabCameraEvents = true;
+		camera.RegisterCameraEventHandler(Handler_exposure_ev, "EventExposureEndData", ExposureEndEvent, RegistrationMode_ReplaceAll, Cleanup_None);
 
         // Print the model name of the camera.
 		cout << "Using device " << camera.GetDeviceInfo().GetVendorName() << " " << camera.GetDeviceInfo().GetModelName() << endl;
@@ -113,6 +164,14 @@ int main(int argc, char* argv[])
 		INodeMap& nodemap = camera.GetNodeMap();
 		// Open the camera before accessing any parameters.
 		camera.Open();
+		if (!GenApi::IsAvailable(camera.EventSelector))
+		{
+			throw RUNTIME_EXCEPTION("The device doesn't support events.");
+		}
+
+		// Enable sending of Exposure End events.
+		camera.EventSelector.SetValue(EventSelector_ExposureEnd);
+		camera.EventNotification.SetValue(EventNotification_On);
 
 		// The parameter MaxNumBuffer can be used to control the count of buffers
         // allocated for grabbing. The default value of this parameter is 10.
@@ -138,6 +197,21 @@ int main(int argc, char* argv[])
 		CFloatPtr(nodemap.GetNode("ExposureTime"))->SetValue(exposure_time);
 		// Set the pixel format to RGB8 8bit
 		CEnumerationPtr(nodemap.GetNode("PixelFormat"))->FromString("RGB8");
+
+		// Set to hardware trigger mode: 
+		// Select the frame start trigger
+		camera.TriggerSelector.SetValue(TriggerSelector_FrameStart);
+		camera.TriggerMode.SetValue(TriggerMode_On);
+		camera.TriggerSource.SetValue(TriggerSource_Line1);
+		camera.TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+		camera.TriggerDelay.SetValue(delay_us);
+		camera.LineSelector.SetValue(LineSelector_Line1);
+		camera.LineDebouncerTime.SetValue(debouncer_us);
+
+		// Output signal on Line2 when exposing image:
+		camera.LineSelector.SetValue(LineSelector_Line2);
+		camera.LineSource.SetValue(LineSource_ExposureActive);
+
 
 		// Create an OpenCV video creator.
 		VideoWriter cvVideoCreator;
@@ -175,7 +249,6 @@ int main(int argc, char* argv[])
 		vector<double> g_y;
 		vector<double> r_y;
 		int64_t tic;
-		vector<double> framerate_vec;
 		double framerate_calc = 0.;
 
 		// Initialize grabbed matrix:
@@ -188,25 +261,24 @@ int main(int argc, char* argv[])
 		Size size_small(acq_frame_height / scale_factor, acq_frame_width / scale_factor); // resize
 		cv::Mat mat8_uc3_small(acq_frame_height / scale_factor, acq_frame_width / scale_factor, CV_8UC3); // black image- stays black
 		cv::Mat mat8_uc3_small_video(acq_frame_height / scale_factor, acq_frame_width / scale_factor, CV_8UC3); // for showing in video
-
-		// Start the grabbing of c_countOfImagesToGrab images.
-		// The camera device is parameterized with a default configuration which
-		// sets up free-running continuous acquisition.
-		camera.StartGrabbing(c_countOfImagesToGrab, GrabStrategy_LatestImageOnly); // GrabStrategy_LatestImageOnly GrabStrategy_OneByOne														  
+											  
+		camera.AcquisitionStart.Execute();
+		camera.StartGrabbing(GrabStrategy_LatestImageOnly, GrabLoop_ProvidedByUser);
+		cout << "Starting grabbing..." << endl;
 		CGrabResultPtr ptrGrabResult;
 
-		while ( camera.IsGrabbing())
+		while (1) // camera.IsGrabbing()
         {
-			CCommandPtr(nodemap.GetNode("TimestampLatch"))->Execute();
-			// Get the timestamp value
-			tic = CIntegerPtr(nodemap.GetNode("TimestampLatchValue"))->GetValue();
-			framerate_vec.push_back(tic);
 			// calculate running framerate:
 			if (grabbedImages > 0) framerate_calc = 1000000000./((framerate_vec.back() - framerate_vec.at(0)) / framerate_vec.size());
-		
-            // Wait for an image and then retrieve it. A timeout of 5000 ms is used.
-            camera.RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
 
+            // Wait for an image and then retrieve it. A timeout of 5000 ms is used.
+			camera.WaitForFrameTriggerReady(INFINITE, TimeoutHandling_Return);			
+			camera.RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException); // wait for 5 seconds then stop
+			CCommandPtr(nodemap.GetNode("TimestampLatch"))->Execute();
+			// Get the timestamp value
+			int64_t tic = CIntegerPtr(nodemap.GetNode("TimestampLatchValue"))->GetValue();
+			cout << tic << endl;
             // Image grabbed successfully?
             if (ptrGrabResult->GrabSucceeded())
             {
@@ -227,7 +299,7 @@ int main(int argc, char* argv[])
 				circle(mat8_uc3_small, pt_red, 1, cvScalar(0, 255, 0), 1.5);
 
 				// save:
-				output_timestamps << grabbedImages << "," << tic << "," << tracking_result.at<double>(0, 0) << "," <<
+				output_timestamps << frame_id_vec.back() << "," << framerate_vec.back() << "," << tracking_result.at<double>(0, 0) << "," <<
 					tracking_result.at<double>(0, 1) << "," << tracking_result.at<double>(1, 0) << "," 
 					 << tracking_result.at<double>(1, 1) << "\n";
 
@@ -290,6 +362,9 @@ int main(int argc, char* argv[])
 		// close timestamp file 
 		output_timestamps.close();
 
+		camera.EventSelector.SetValue(EventSelector_ExposureEnd);
+		camera.EventNotification.SetValue(EventNotification_Off);
+
 		// Release the video file on leaving.
 		if (recordVideo)
 			cvVideoCreator.release();
@@ -301,6 +376,9 @@ int main(int argc, char* argv[])
         << e.GetDescription() << endl;
         exitCode = 1;
     }
+
+	// Delete the event handlers.
+	delete Handler_exposure_ev;
 
     // Comment the following two lines to disable waiting on exit.
     cerr << endl << "Press Enter to exit." << endl;
