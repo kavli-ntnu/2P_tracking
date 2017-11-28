@@ -46,21 +46,8 @@
 #include "thresh_tracking.h"
 #include "init_func.h"
 
-//Global variables
-char ImagePath[250];
 // Number of images to be grabbed.
 static const uint32_t c_countOfImagesToGrab = 2000;
-
-//void on_low_h_thresh_trackbar(int, void *);
-//void on_high_h_thresh_trackbar(int, void *);
-//void on_low_s_thresh_trackbar(int, void *);
-//void on_high_s_thresh_trackbar(int, void *);
-//void on_low_v_thresh_trackbar(int, void *);
-//void on_high_v_thresh_trackbar(int, void *);
-// if trackbar:
-int low_h = 116, low_s = 250, low_v = 2;
-int high_h = 129, high_s = 255, high_v = 189;
-
 
 // Namespace for using pylon objects.
 using namespace Pylon;
@@ -69,7 +56,6 @@ using namespace cv;
 // Namespace for using cout.
 using namespace std;
 using namespace GenApi;
-
 
 
 int main(int argc, char* argv[])
@@ -149,7 +135,6 @@ int main(int argc, char* argv[])
 		gain->SetValue(newGain);
 		// exposure time
 		CFloatPtr(nodemap.GetNode("ExposureTime"))->SetValue(exposure_time);
-
 		// Set the pixel format to RGB8 8bit
 		CEnumerationPtr(nodemap.GetNode("PixelFormat"))->FromString("RGB8");
 
@@ -186,26 +171,24 @@ int main(int argc, char* argv[])
         // Camera.StopGrabbing() is called automatically by the RetrieveResult() method
         // when c_countOfImagesToGrab images have been retrieved.
 		
-		cv::Mat mat8_uc3_c(acq_frame_height, acq_frame_width, CV_8UC3);
-
-		// start tracking code here.
-
-		int64_t last_tic;
-
+		// Create windows
 		namedWindow("OpenCV Tracker", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
 		resizeWindow("OpenCV Tracker", 500, 500);
-		// Create another OpenCV display window.
-		namedWindow("OpenCV Tracker Thresh", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
-		//resizeWindow("OpenCV Tracker Thresh", 500,885);
+		namedWindow("OpenCV Tracker Thresh", CV_WINDOW_NORMAL); 
 		resizeWindow("OpenCV Tracker Thresh", 500, 500);
+
 
 		cv::Mat tracking_result; // what comes out of the actual tracking function 
 		vector<double> g_x;
 		vector<double> r_x;
 		vector<double> g_y;
 		vector<double> r_y;
-
-        while ( camera.IsGrabbing())
+		// Initialize grabbed matrix:
+		cv::Mat mat8_uc3_c(acq_frame_height, acq_frame_width, CV_8UC3);
+		int64_t last_tic;
+		
+		
+		while ( camera.IsGrabbing())
         {
 			CCommandPtr(nodemap.GetNode("TimestampLatch"))->Execute();
 			// Get the timestamp value
