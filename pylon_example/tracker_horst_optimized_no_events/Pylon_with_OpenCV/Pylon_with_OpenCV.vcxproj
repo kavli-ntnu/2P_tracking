@@ -164,8 +164,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="init_func.cpp" />
-    <ClCompile Include="thresh_tracking.cpp" />
     <ClCompile Include="Tracker.cpp" />
+    <ClCompile Include="thresh_tracking.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

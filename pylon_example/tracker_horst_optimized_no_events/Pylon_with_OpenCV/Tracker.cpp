@@ -1,24 +1,10 @@
-// Pylon_with_OpenCV.cpp
+// Tracker Horst
 
 /*
-    Note: Before getting started, Basler recommends reading the Programmer's Guide topic
-    in the pylon C++ API documentation that gets installed with pylon.
-    If you are upgrading to a higher major version of pylon, Basler also
-    strongly recommends reading the Migration topic in the pylon C++ API documentation.
+Perform online tracking of images grabbed from Basler camera
 
-    This sample illustrates how to grab and process images using the CInstantCamera class and OpenCV.
-    The images are grabbed and processed asynchronously, i.e.,
-    while the application is processing a buffer, the acquisition of the next buffer is done
-    in parallel.
-	
-	OpenCV is used to demonstrate an image display, an image saving and a video recording.
 
-    The CInstantCamera class uses a pool of buffers to retrieve image data
-    from the camera device. Once a buffer is filled and ready,
-    the buffer can be retrieved from the camera object for processing. The buffer
-    and additional image data are collected in a grab result. The grab result is
-    held by a smart pointer after retrieval. The buffer is automatically reused
-    when explicitly released or when the smart pointer object is destroyed.
+
 */
 
 #include "stdafx.h"
@@ -27,16 +13,13 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <chrono>
 
 // Include files to use the PYLON API.
 #include <pylon/PylonIncludes.h>
 #ifdef PYLON_WIN_BUILD
 #    include <pylon/PylonGUI.h>
 #endif
-
-// Include files used by samples.
-#include "ConfigurationEventPrinter.h"
-#include "CameraEventPrinter.h"
 
 // Include files to use OpenCV API.
 #include <opencv2/core/core.hpp>
@@ -59,16 +42,13 @@ using namespace cv;
 using namespace std;
 using namespace GenApi;
 
-vector<double> framerate_vec;
-vector<double> frame_id_vec;
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
 {
 
 	// The exit code of the sample application.
-    int exitCode = 0;
+	int exitCode = 0;
 	int retval = 0;
 	int exposure_time = 3000;
 	int delay_us = 0;
@@ -96,23 +76,23 @@ int main(int argc, char* argv[])
 	cout << "Reading ini-file..." << endl;
 	retval = init(exposure_time, delay_us, gain_increase, debouncer_us, saveImages, recordVideo,
 		acq_frame_height, acq_frame_width, scale_factor,
-		red_h_low,red_s_low, red_v_low, red_h_high, red_s_high, red_v_high,
+		red_h_low, red_s_low, red_v_low, red_h_high, red_s_high, red_v_high,
 		green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high, playback_speed_video);
 
-    // Automagically call PylonInitialize and PylonTerminate to ensure the pylon runtime system
-    // is initialized during the lifetime of this object.
-    Pylon::PylonAutoInitTerm autoInitTerm;
+	// Automagically call PylonInitialize and PylonTerminate to ensure the pylon runtime system
+	// is initialized during the lifetime of this object.
+	Pylon::PylonAutoInitTerm autoInitTerm;
 	SYSTEMTIME st;
 	GetLocalTime(&st);	//GetSystemTime(&st);
-	cout << endl << endl << "Started: " << st.wYear << "-" <<  st.wMonth << "-" << st.wDay << " " << st.wHour  << ":" <<  st.wMinute << ":" << st.wSecond << endl;
+	cout << endl << endl << "Started: " << st.wYear << "-" << st.wMonth << "-" << st.wDay << " " << st.wHour << ":" << st.wMinute << ":" << st.wSecond << endl;
 
-    try
-    {
+	try
+	{
 		CDeviceInfo info;
 		info.SetDeviceClass(Camera_t::DeviceClass());
-        // Create an instant camera object with the camera device found first.
-		Camera_t camera( CTlFactory::GetInstance().CreateFirstDevice());
-        // Print the model name of the camera.
+		// Create an instant camera object with the camera device found first.
+		Camera_t camera(CTlFactory::GetInstance().CreateFirstDevice());
+		// Print the model name of the camera.
 		cout << "Using device " << camera.GetDeviceInfo().GetVendorName() << " " << camera.GetDeviceInfo().GetModelName() << endl;
 
 		// Get a camera nodemap in order to access camera parameters.
@@ -120,7 +100,7 @@ int main(int argc, char* argv[])
 		// Open the camera before accessing any parameters.
 		camera.Open();
 
-        camera.MaxNumBuffer = 10;
+		camera.MaxNumBuffer = 20; // Make sure buffer does not overfloat if framerate is too high! 
 		CIntegerPtr(nodemap.GetNode("Width"))->SetValue(acq_frame_width);
 		CIntegerPtr(nodemap.GetNode("Height"))->SetValue(acq_frame_height);
 		CIntegerPtr(nodemap.GetNode("OffsetX"))->SetValue(0);
@@ -128,7 +108,7 @@ int main(int argc, char* argv[])
 		CEnumerationPtr gainAuto(nodemap.GetNode("GainAuto"));
 		CEnumerationPtr exposureAuto(nodemap.GetNode("ExposureAuto"));
 		CEnumerationPtr exposureMode(nodemap.GetNode("ExposureMode"));
-	
+
 		// set gain and exposure time
 		cout << "Setting auto gain to off" << endl;
 		//gainAuto->FromString("Off");
@@ -136,8 +116,13 @@ int main(int argc, char* argv[])
 		exposureAuto->FromString("Off");
 		CFloatPtr gain(nodemap.GetNode("Gain"));
 		double newGain = gain->GetMin() + gain_increase;
-		cout << "Setting gain to " << newGain <<  endl;
+		cout << "Setting gain to " << newGain << endl;
 		gain->SetValue(newGain);
+		// set auto wyite balance to off
+		cout << "Setting auto whitebalance to off " << endl;
+		camera.AutoFunctionROISelector.SetValue(AutoFunctionROISelector_ROI1);
+		camera.AutoFunctionROIUseWhiteBalance.SetValue(false);
+
 		// exposure time
 		CFloatPtr(nodemap.GetNode("ExposureTime"))->SetValue(exposure_time);
 		// Set the pixel format to RGB8 8bit
@@ -159,113 +144,111 @@ int main(int argc, char* argv[])
 
 		// Create an OpenCV video creator.
 		VideoWriter cvVideoCreator;
-		// Define the video file name.
-		std::string videoFileName= "openCvVideo.avi";
-		// Define the video frame size.
-		cv::Size frameSize= Size(acq_frame_width/scale_factor, acq_frame_height/scale_factor);
-		cvVideoCreator.open(videoFileName, CV_FOURCC('M', 'J', 'P', 'G'), playback_speed_video, frameSize, true); // 'M','J','P','G'
-
-		// Get a fresh system timestamp: 
+		if (recordVideo)
+		{
+			// Define the video file name.
+			std::string videoFileName = "openCvVideo.avi";
+			// Define the video frame size.
+			cv::Size frameSize = Size(acq_frame_width / scale_factor, acq_frame_height / scale_factor);
+			cvVideoCreator.open(videoFileName, CV_FOURCC('M', 'J', 'P', 'G'), playback_speed_video, frameSize, true);
+		}
+																												  
+	    // Get a fresh system timestamp: 
 		SYSTEMTIME st;
-		GetLocalTime(&st);	
-		cout << "Started: " << st.wYear << "-" << st.wMonth << "-" << st.wDay << " " << st.wHour << ":" << st.wMinute << ":" << st.wSecond << endl; 
+		GetLocalTime(&st);
+		cout << endl << "Started: " << st.wYear << "-" << st.wMonth << "-" << st.wDay << " " << st.wHour << ":" << st.wMinute << ":" << st.wSecond << endl;
 
 		// create text file
 		ofstream output_timestamps;
 		output_timestamps.open("export_timestamps.csv");
-		output_timestamps << camera.GetDeviceInfo().GetVendorName() << "_" << camera.GetDeviceInfo().GetModelName() <<  "\n";
-		output_timestamps << "Tracking height (px): " << acq_frame_height/scale_factor << " | Tracking width (px): " << acq_frame_width / scale_factor << "\n";
-		output_timestamps << "File creation timestamp:  " << st.wYear << "-" << st.wMonth << "-" << st.wDay << " " << st.wHour << ":" << st.wMinute << ":" << st.wSecond  << "\n";
+		output_timestamps << camera.GetDeviceInfo().GetVendorName() << "_" << camera.GetDeviceInfo().GetModelName() << "\n";
+		output_timestamps << "Tracking height (px): " << acq_frame_height / scale_factor << " | Tracking width (px): " << acq_frame_width / scale_factor << "\n";
+		output_timestamps << "File creation timestamp:  " << st.wYear << "-" << st.wMonth << "-" << st.wDay << " " << st.wHour << ":" << st.wMinute << ":" << st.wSecond << "\n";
 		// Header written, now actual columns:
-		output_timestamps << "frame,cam_timestamp,green_x,green_y,red_x,red_y\n";
+		output_timestamps << "frame,cam_timestamp,sys_timestamp, green_x,green_y,red_x,red_y\n";
 
 		///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-		
-		// Create display windows
-		namedWindow("OpenCV Tracker", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
-		resizeWindow("OpenCV Tracker", 500, 500);
-		namedWindow("OpenCV Tracker Thresh", CV_WINDOW_NORMAL); 
-		resizeWindow("OpenCV Tracker Thresh", 500, 500);
 
-		cv::Mat tracking_result; // what comes out of the actual tracking function 
-		vector<double> g_x;
-		vector<double> r_x;
-		vector<double> g_y;
-		vector<double> r_y;
+		// Create display windows
+		namedWindow("Live Image", CV_WINDOW_NORMAL); // other options: CV_AUTOSIZE, CV_FREERATIO, CV_WINDOW_NORMAL
+		resizeWindow("Live Image", 500, 500);
+		namedWindow("Tracking", CV_WINDOW_NORMAL);
+		resizeWindow("Tracking", 500, 500);
+
+		Mat tracking_result = Mat(2, 2, CV_64F, double(0)); // what comes out of the actual tracking function 
 		double framerate_calc = 0.;
 
 		// Initialize grabbed matrix:
 		cv::Mat mat8_uc3_c(acq_frame_height, acq_frame_width, CV_8UC3);
 		int64_t grabbedImages = 0;
-		int64_t tic=0;
+		int64_t first_tic;
+
 		// initialize matrices:
 		cv::Mat mat8_uc3(acq_frame_height, acq_frame_width, CV_8UC3);
-
 		Size size_small(acq_frame_height / scale_factor, acq_frame_width / scale_factor); // resize
-		cv::Mat mat8_uc3_small(acq_frame_height / scale_factor, acq_frame_width / scale_factor, CV_8UC3); // black image - stays black
+		cv::Mat mat8_uc3_small_track(acq_frame_height / scale_factor, acq_frame_width / scale_factor, CV_8UC3); // black image - stays black
 		cv::Mat mat8_uc3_small_video(acq_frame_height / scale_factor, acq_frame_width / scale_factor, CV_8UC3); // for showing in video
-											  
+
+		// Clock
+		using Clock = std::chrono::high_resolution_clock;
+
+		// Enable Time chunk retrieval 
+		camera.ChunkModeActive.SetValue(true);
+		camera.ChunkSelector.SetValue(ChunkSelector_Timestamp);
+		camera.ChunkEnable.SetValue(true);
+
 		camera.AcquisitionStart.Execute();
-		camera.StartGrabbing(GrabStrategy_LatestImageOnly, GrabLoop_ProvidedByUser);
+		camera.StartGrabbing(GrabStrategy_OneByOne, GrabLoop_ProvidedByUser); // Grab all images that are triggered. 
+
 		cout << "Starting grabbing..." << endl;
 		CGrabResultPtr ptrGrabResult;
 
-		while (camera.IsGrabbing()) // camera.IsGrabbing()
-        {
+		while (camera.IsGrabbing()) 
+		{
+			// Wait for an image and then retrieve it. A timeout of 3000 ms is used.
+			camera.RetrieveResult(3000, ptrGrabResult, TimeoutHandling_ThrowException); // wait for 3 seconds then stop
+																																								
+			if (ptrGrabResult->GrabSucceeded())
+			{
+				// get timestamp chunk: 
+				CIntegerPtr chunkTimestamp(ptrGrabResult->GetChunkDataNodeMap().GetNode("ChunkTimestamp"));
 
-			// Wait for an image and then retrieve it. A timeout of 5000 ms is used.
-			camera.RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException); // wait for 5 seconds then stop
-																						// Get a timestamp 
-			// Image grabbed successfully?
-            if (ptrGrabResult->GrabSucceeded())
-            {
-				CCommandPtr(nodemap.GetNode("TimestampLatch"))->Execute();
-				tic = CIntegerPtr(nodemap.GetNode("TimestampLatchValue"))->GetValue();
+				if (grabbedImages == 0)
+				{
+					first_tic = chunkTimestamp->GetValue();
+				}
+				// get high res system time stamp
+				auto tic_system = Clock::now().time_since_epoch().count();
+				
 				grabbedImages++;
-				frame_id_vec.push_back(grabbedImages);
-				framerate_vec.push_back(tic);
 				// calculate running framerate:
-				if (grabbedImages > 1) framerate_calc = 1000000000. / ((framerate_vec.back() - framerate_vec.at(0)) / framerate_vec.size());
+				if (grabbedImages > 1) framerate_calc = 1000000000. / ((chunkTimestamp->GetValue() - first_tic) / grabbedImages);
 
 				// Create an OpenCV image from a grabbed image.
 				cv::Mat mat8_uc3(acq_frame_height, acq_frame_width, CV_8UC3, (uintmax_t *)ptrGrabResult->GetBuffer());
-				resize(mat8_uc3, mat8_uc3_small, size_small); //resize images
-				mat8_uc3_small.copyTo(mat8_uc3_small_video); // create a copy
-
+				resize(mat8_uc3, mat8_uc3_small_video, size_small); //resize images
+				mat8_uc3.release();
 				// Start tracking here 
-				tracking_result = GetThresholdedImage(mat8_uc3_small, red_h_low, red_s_low, red_v_low,
+				tracking_result = GetThresholdedImage(mat8_uc3_small_video, red_h_low, red_s_low, red_v_low,
 					red_h_high, red_s_high, red_v_high, green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high);
 
 				// draw tracking
 				Point pt_green = Point(tracking_result.at<double>(0, 0), tracking_result.at<double>(0, 1));
-				circle(mat8_uc3_small, pt_green, 1, cvScalar(0, 0, 255), 1.5);
+				circle(mat8_uc3_small_track, pt_green, 1, cvScalar(0, 0, 255), 1.5);
 				Point pt_red = Point(tracking_result.at<double>(1, 0), tracking_result.at<double>(1, 1));
-				circle(mat8_uc3_small, pt_red, 1, cvScalar(0, 255, 0), 1.5);
+				circle(mat8_uc3_small_track, pt_red, 1, cvScalar(0, 255, 0), 1.5);
 
 				// save:
-				output_timestamps << grabbedImages << "," << tic << "," << tracking_result.at<double>(0, 0) << "," <<
-					tracking_result.at<double>(0, 1) << "," << tracking_result.at<double>(1, 0) << "," 
-					 << tracking_result.at<double>(1, 1) << "\n";
-
-				g_x.push_back(tracking_result.at<double>(0, 0)); 
-				r_x.push_back(tracking_result.at<double>(1, 0));
-				g_y.push_back(tracking_result.at<double>(0, 1));
-				r_y.push_back(tracking_result.at<double>(1, 1));
-
-				for (int i = 0; i < g_x.size(); i++)
-				{
-					pt_green = Point(g_x.at(i), g_y.at(i));
-					circle(mat8_uc3_small, pt_green, 1, cvScalar(0, 0, 250), 1);
-					pt_red = Point(r_x.at(i), r_y.at(i));
-					circle(mat8_uc3_small, pt_red, 1, cvScalar(0, 250, 0), 1);
-				}
-
+				output_timestamps << grabbedImages << "," << chunkTimestamp->GetValue() << "," << tic_system  << "," << tracking_result.at<double>(0, 0) << "," <<
+					tracking_result.at<double>(0, 1) << "," << tracking_result.at<double>(1, 0) << ","
+					<< tracking_result.at<double>(1, 1) << "\n";
+	
 				// invert channel order
 				cv::cvtColor(mat8_uc3_small_video, mat8_uc3_small_video, cv::COLOR_BGR2RGB);
 				mat8_uc3_small_video = mat8_uc3_small_video * 4; // only for viewing purposes (make it all a bit brighter)
 
-				// Set saveImages to '1' to save images.
-				if (saveImages) {					
+			    // Set saveImages to '1' to save images.
+				if (saveImages) {
 					// Create the current image name for saving.
 					std::ostringstream s;
 					// Create image name files with ascending grabbed image numbers.
@@ -281,27 +264,28 @@ int main(int argc, char* argv[])
 
 				// Burn framerate into image
 				std::ostringstream strs;
-				strs << fixed << setprecision(1) << framerate_calc << " fps";
+				strs << fixed << setprecision(1) << framerate_calc << " fps | " << grabbedImages;
 				std::string str = strs.str();
-				putText(mat8_uc3_small, str, cvPoint(3, 15),
+				putText(mat8_uc3_small_video, str, cvPoint(3, 15),
 					FONT_HERSHEY_SIMPLEX, 0.35, cvScalar(255, 255, 255), 0, CV_AA);
 				// Create an OpenCV display window.
-				imshow("OpenCV Tracker", mat8_uc3_small_video);
-				imshow("OpenCV Tracker Thresh", mat8_uc3_small);
+				imshow("Live Image", mat8_uc3_small_video);
+				imshow("Tracking", mat8_uc3_small_track);
 
+				mat8_uc3_small_video.release();
 				tracking_result.release();
 				waitKey(1);
-
-				#ifdef PYLON_WIN_BUILD
-                // Display the grabbed image in pylon.
-                //Pylon::DisplayImage(1, ptrGrabResult);
-				#endif
-            }
-            else
-            {
-                cout << "Error: " << ptrGrabResult->GetErrorCode() << " " << ptrGrabResult->GetErrorDescription() << endl;
-            }
-        }
+				// 
+#ifdef PYLON_WIN_BUILD
+				// Display the grabbed image in pylon.
+				//Pylon::DisplayImage(1, ptrGrabResult);
+#endif
+			}
+			else
+			{
+				cout << "Error: " << ptrGrabResult->GetErrorCode() << " " << ptrGrabResult->GetErrorDescription() << endl;
+			}
+		}
 
 		// close timestamp file 
 		output_timestamps.close();
@@ -309,19 +293,19 @@ int main(int argc, char* argv[])
 		// Release the video file on leaving.
 		if (recordVideo)
 			cvVideoCreator.release();
-    }
-    catch (GenICam::GenericException &e)
-    {
-        // Error handling.
-        cout << "An exception occurred." << endl
-        << e.GetDescription() << endl;
-        exitCode = 1;
-    }
+	}
+	catch (GenICam::GenericException &e)
+	{
+		// Error handling.
+		cout << "An exception occurred." << endl
+			<< e.GetDescription() << endl;
+		exitCode = 1;
+	}
 
-    // Comment the following two lines to disable waiting on exit.
-    cerr << endl << "Press Enter to exit." << endl;
-    while( cin.get() != '\n');
+	// Comment the following two lines to disable waiting on exit.
+	cerr << endl << "Press Enter to exit." << endl;
+	while (cin.get() != '\n');
 	// Releases all pylon resources. 
 	//PylonTerminate();
-    return exitCode;
+	return exitCode;
 }

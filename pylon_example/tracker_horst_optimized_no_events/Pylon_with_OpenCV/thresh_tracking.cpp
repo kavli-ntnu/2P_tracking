@@ -38,13 +38,13 @@ cv::Mat GetThresholdedImage(cv::Mat img, uint red_h_low, uint red_s_low, uint re
 
 	// extract connected components and statistics
 	cv::Mat labelImage_red(img.size(), CV_8UC3);
-	cv::Mat stats_red(img.size(), CV_32S);
-	cv::Mat centroids_red(img.size(), CV_32S);
+	cv::Mat stats_red(img.size(), CV_64F);
+	cv::Mat centroids_red(img.size(), CV_64F);
 	int nLabels_red = connectedComponentsWithStats(img_thresh_red2, labelImage_red, stats_red, centroids_red, 8, CV_32S);
 	std::vector<Vec3b> colors(nLabels_red);
 	colors[0] = Vec3b(0, 0, 0); //background
 	for (int label = 1; label < nLabels_red; ++label) {
-		Point pt_red = Point(centroids_red.at<double>(label, 0), centroids_red.at<double>(label, 1));
+		//Point pt_red = Point(centroids_red.at<double>(label, 0), centroids_red.at<double>(label, 1));
 		//cout << "Label " << label << "   " << (cv::Point)(centroids.at<double>(label, 0), centroids.at<double>(label, 1)) << endl;
 		//circle(img_scribble, pt_red, 1, cvScalar(255, 0, 0), 1);
 
@@ -54,12 +54,12 @@ cv::Mat GetThresholdedImage(cv::Mat img, uint red_h_low, uint red_s_low, uint re
 	}
 
 	cv::Mat labelImage_green(img.size(), CV_8UC3);
-	cv::Mat stats_green(img.size(), CV_32S);
-	cv::Mat centroids_green(img.size(), CV_32S);
+	cv::Mat stats_green(img.size(), CV_64F);
+	cv::Mat centroids_green(img.size(), CV_64F);
 	int nLabels_green = connectedComponentsWithStats(img_thresh_green2, labelImage_green, stats_green, centroids_green, 8, CV_32S);
 	colors[0] = Vec3b(0, 0, 0); //background
 	for (int label = 1; label < nLabels_green; ++label) {
-		Point pt_green = Point(centroids_green.at<double>(label, 0), centroids_green.at<double>(label, 1));
+		//Point pt_green = Point(centroids_green.at<double>(label, 0), centroids_green.at<double>(label, 1));
 		//cout << "Label " << label << "   " << (cv::Point)(centroids.at<double>(label, 0), centroids.at<double>(label, 1)) << endl;
 		//circle(img_scribble, pt_green, 1, cvScalar(0, 255, 0), 1);
 		

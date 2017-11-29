@@ -41,13 +41,13 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Tracker.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="thresh_tracking.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="init_func.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Tracker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
