@@ -24,13 +24,13 @@ If things are too slow / frames are lost:
 - lower the resolution of tracking. This is currently done through a "scale_factor" (see *Tracker_params.ini* below, e.g. 1500/scale_factor=500)
 
 ## Installation
-The current version of the tracker can be found under [Tracker/Current version/](Tracker/Current version/).
+The current version of the tracker can be found [here](Tracker/Current version).
 It is written in C++, requires a correctly installed *opencv* and *pylon* environment. Check the [PDF](Tracker/AW00136801000_Getting_Started_with_pylon5_and_OpenCV.PDF) from Basler for a getting started guide and setup your environment variables accordingly. It explains the basics of how to use the Pylon SDK to access and manipulate camera parameters.
 Check that your camera works and parameters can be accessed by starting the Pylon viewer software.
 You have to set up the parameters for color thresholding according to the LEDs you use. All thresholds are exposed in the **Tracker_params.ini** (see below).
 
 ## Tracker_params.ini
-Some tracker settings can be accessed through the [Tracker/Current version/x64/Release/Tracker_params.ini](Tracker/Current version/x64/Release/Tracker_params.ini) in the application base folder. An explanation of all parameters follows:
+Some tracker settings can be accessed through the [Tracker_params.ini](Tracker/Current version/x64/Release/Tracker_params.ini) in the application base folder. An explanation of all parameters follows:
 
 - **grabber_timeout=2000** // Time before program aborts when no trigger input is received
 - **ExposureTime=10000** // Exposure time in microseconds
@@ -78,4 +78,5 @@ If images are exported, they are saved under /export as .jpg.
 Both videos and images have the dimensions of scaled (in my case 500x500 px) frames.
 
 ### Video time
+2 LEDs on a string, tracked 500x500 px, 50fps.
 [![Watch a shaky video on Vimeo](https://i.imgur.com/EmlkPaM.png)](https://vimeo.com/245192287 "Little presentation on vimeo - Click to Watch!")
