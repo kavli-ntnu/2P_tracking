@@ -1,6 +1,7 @@
 # 2 color LED tracking with a Basler camera
 
 Performs tracking of 2 LEDs (by default one green, one red) with a Basler camera via openCV.
+Current release: [here](Tracker/Current%20version/x64/Release).
 
 ## Requirements
 - OpenCV 3.3.1
