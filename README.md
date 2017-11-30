@@ -9,7 +9,7 @@ Performs tracking of 2 LEDs (by default one green, one red) with a Basler camera
 (Tested under Win10)
 
 The specific camera model this code was written for is the [acA2040-55uc](https://www.baslerweb.com/en/products/cameras/area-scan-cameras/ace/aca2040-55uc/) (USB3.0).
-It was coupled to an [AZURE- 1236ZM](http://www.azurephotonicsus.com/products/azure-1236ZM.html) objective. This enables live tracking of two LEDs at a distance of about 200 cm in a 80x80cm box. The actual tracking runs at 50 fps (exposure time: 10 ms) at 500x500 px in a dark environment (actual image dimensions grabbed from sensor: 1500x1500 px). See end of this README for link to a short [demonstration video](#video-time!).
+It was coupled to an [AZURE- 1236ZM](http://www.azurephotonicsus.com/products/azure-1236ZM.html) objective. This enables live tracking of two LEDs at a distance of about 200 cm in a 80x80cm box. The actual tracking runs at 50 fps (exposure time: 10 ms) at 500x500 px in a dark environment (actual image dimensions grabbed from sensor: 1500x1500 px). See end of this README for link to a short [demonstration video](#video-time).
 The code is based on an example provided by Basler: "Getting Started with pylon and OpenCV".
 By default (see parameters below), online tracking is enabled and each grabbed frame is written to a video container, which gets saved at the end together with a tracking results .csv that contains timestamps for every analyzed frame and tracked coordinates of both LEDs.
 
@@ -77,5 +77,5 @@ If videos are exported, they are saved under /export as MJPG compressed .avi.
 If images are exported, they are saved under /export as .jpg.
 Both videos and images have the dimensions of scaled (in my case 500x500 px) frames.
 
-### Video time!
+### Video time
 [![Watch a shaky video on Vimeo](https://i.imgur.com/EmlkPaM.png)](https://vimeo.com/245192287 "Little presentation on vimeo - Click to Watch!")
