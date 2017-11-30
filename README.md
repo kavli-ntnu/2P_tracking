@@ -22,7 +22,7 @@ Writing images out for every grabbed frame (*saveImages* option, see below) is n
 
 If things are too slow / frames are lost:
 - Trigger < 50 Hz
-- Kill the video output
+- Kill the video export 
 - lower the resolution of tracking. This is currently done through a "scale_factor" (see *Tracker_params.ini* below, e.g. 1500/scale_factor=500)
 
 ## Installation
