@@ -1,6 +1,6 @@
-# Basler 2 color LED tracking
+# 2 color LED tracking with a Basler camera
 
-Performs tracking of 2 LEDs (by default one green, one red) with a Basler camera and openCV.
+Performs tracking of 2 LEDs (by default one green, one red) with a Basler camera via openCV.
 
 ## Requirements
 - OpenCV 3.3.1
@@ -18,6 +18,7 @@ At startup the camera is put into hardware trigger mode and expects a (regular) 
 The actual tracking algorithm is "as easy as possible": Conversion to HSV -> thresholding for two LEDs -> morphological operation -> connected component extraction -> centroids. This is performed on a scaled version of the grabbed image (1500 x 1500px for me, but adjustable).
 At 500x500px, 50 fps, the computational demands are quite high and it might be a good idea to start with trigger frequencies < 50 Hz. The grab strategy is set to *"OnebyOne"* meaning that no frames are lost if the acquisition PC can take it and the default frame buffer (25 images) is not overrun. This works fine on my computer, but the jitter induced by processing every frame can be substantial. See the example Jupyter notebook with analysis output below. It is important to note though that *the actual acquisition is not affected* (recorded frame times remain accurate).
 Writing images out for every grabbed frame (*saveImages* option, see below) is not advisable: I didn't manage to speed that process up and everything slows down considerably. For quick test images and to adjust threshold parameters for tracking, this is however a quick and dirty way to get an image out.
+
 If things are too slow / frames are lost:
 - Trigger < 50 Hz
 - Kill the video output
