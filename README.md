@@ -24,7 +24,7 @@ If things are too slow / frames are lost:
 - lower the resolution of tracking. This is currently done through a "scale_factor" (see *Tracker_params.ini* below, e.g. 1500/scale_factor=500)
 
 ## Installation
-The current version of the tracker can be found [here](Tracker/current%20version).
+The current version of the tracker can be found [here](Tracker/Current%20version).
 It is written in C++, requires a correctly installed *opencv* and *pylon* environment. Check the [PDF](Tracker/AW00136801000_Getting_Started_with_pylon5_and_OpenCV.PDF) from Basler for a getting started guide and setup your environment variables accordingly. It explains the basics of how to use the Pylon SDK to access and manipulate camera parameters.
 Check that your camera works and parameters can be accessed by starting the Pylon viewer software.
 You have to set up the parameters for color thresholding according to the LEDs you use. All thresholds are exposed in the **Tracker_params.ini** (see below).
