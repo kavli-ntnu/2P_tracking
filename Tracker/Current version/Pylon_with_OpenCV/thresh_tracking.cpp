@@ -44,11 +44,6 @@ cv::Mat GetThresholdedImage(cv::Mat img, uint red_h_low, uint red_s_low, uint re
 	std::vector<Vec3b> colors(nLabels_red);
 	colors[0] = Vec3b(0, 0, 0); //background
 	for (int label = 1; label < nLabels_red; ++label) {
-		//Point pt_red = Point(centroids_red.at<double>(label, 0), centroids_red.at<double>(label, 1));
-		//cout << "Label " << label << "   " << (cv::Point)(centroids.at<double>(label, 0), centroids.at<double>(label, 1)) << endl;
-		//circle(img_scribble, pt_red, 1, cvScalar(255, 0, 0), 1);
-
-		// Just write to output matrix for now: 
 		tracking_points.at<double>(0, 0) = centroids_red.at<double>(label, 0);
 		tracking_points.at<double>(0, 1) = centroids_red.at<double>(label, 1);
 	}
@@ -59,15 +54,10 @@ cv::Mat GetThresholdedImage(cv::Mat img, uint red_h_low, uint red_s_low, uint re
 	int nLabels_green = connectedComponentsWithStats(img_thresh_green2, labelImage_green, stats_green, centroids_green, 8, CV_32S);
 	colors[0] = Vec3b(0, 0, 0); //background
 	for (int label = 1; label < nLabels_green; ++label) {
-		//Point pt_green = Point(centroids_green.at<double>(label, 0), centroids_green.at<double>(label, 1));
-		//cout << "Label " << label << "   " << (cv::Point)(centroids.at<double>(label, 0), centroids.at<double>(label, 1)) << endl;
-		//circle(img_scribble, pt_green, 1, cvScalar(0, 255, 0), 1);
-		
-		// Just write to output matrix for now: 
 		tracking_points.at<double>(1, 0) = centroids_green.at<double>(label, 0);
 		tracking_points.at<double>(1, 1) = centroids_green.at<double>(label, 1);
 
 	}
 
-	return tracking_points; // img_thresh2  img_scribble
+	return tracking_points;
 }

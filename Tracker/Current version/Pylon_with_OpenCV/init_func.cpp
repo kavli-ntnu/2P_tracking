@@ -18,8 +18,8 @@ using namespace std;
 
 // INIT FUNCTION:
 // Grab parameters from file in script folder
-int init(int &ptr_exposure_time, int &ptr_delay_us, int &ptr_gain, int &ptr_debouncer, int &ptr_saveImages, int &ptr_recordVideo,
-	int &ptr_acq_frame_height, int &ptr_acq_frame_width, int &ptr_scale_factor,
+int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, int &ptr_gain, int &ptr_debouncer, int &ptr_saveImages, int &ptr_recordVideo,
+	int &ptr_acq_frame_height, int &ptr_acq_frame_width, int &ptr_offset_x, int &ptr_offset_y, int &ptr_scale_factor,
 	int &ptr_red_h_low, int &ptr_red_s_low, int &ptr_red_v_low, 
 	int &ptr_red_h_high, int &ptr_red_s_high, int &ptr_red_v_high,
 	int &ptr_green_h_low, int &ptr_green_s_low, int &ptr_green_v_low,
@@ -40,6 +40,9 @@ int init(int &ptr_exposure_time, int &ptr_delay_us, int &ptr_gain, int &ptr_debo
 	{
 		GetCurrentDirectory(bufsize, CurrentDirectory);
 		swprintf(iniFilePath, 250, L"%s\\%s.ini", CurrentDirectory, strAppName);
+		
+		ptr_grabber_timeout = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("grabber_timeout "), 3000, iniFilePath);
+		cout << "Grabber timeout set to: " << ptr_grabber_timeout << endl;
 
 		ptr_exposure_time = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("ExposureTime"), 3000, iniFilePath);
 		cout << "Exposure time set to: " << ptr_exposure_time << endl;
@@ -65,6 +68,12 @@ int init(int &ptr_exposure_time, int &ptr_delay_us, int &ptr_gain, int &ptr_debo
 		ptr_acq_frame_width = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("acq_frame_width"), 0, iniFilePath);
 		cout << "Acquisition frame width: " << ptr_acq_frame_width << endl;
 
+		ptr_offset_x = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("offset_x"), 0, iniFilePath);
+		cout << "Offset x: " << ptr_offset_x << endl;
+
+		ptr_offset_y = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("offset_y"), 0, iniFilePath);
+		cout << "Offset y: " << ptr_offset_y << endl;
+		
 		ptr_scale_factor = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("scale_factor"), 0, iniFilePath);
 		cout << "Scale factor: " << ptr_scale_factor << endl;
 
