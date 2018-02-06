@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <Windows.h>
+
 
 // Include files to use the PYLON API.
 #include <pylon/PylonIncludes.h>
@@ -16,6 +18,12 @@ using namespace Pylon;
 // Namespace for using cout.
 using namespace std;
 
+#ifndef UNICODE  
+typedef std::string String;
+#else
+typedef std::wstring String;
+#endif
+
 // INIT FUNCTION:
 // Grab parameters from file in script folder
 int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, int &ptr_gain, int &ptr_debouncer, int &ptr_saveImages, int &ptr_recordVideo,
@@ -23,14 +31,14 @@ int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, in
 	int &ptr_red_h_low, int &ptr_red_s_low, int &ptr_red_v_low, 
 	int &ptr_red_h_high, int &ptr_red_s_high, int &ptr_red_v_high,
 	int &ptr_green_h_low, int &ptr_green_s_low, int &ptr_green_v_low,
-	int &ptr_green_h_high, int &ptr_green_s_high, int &ptr_green_v_high, int &ptr_playback_speed_video)
+	int &ptr_green_h_high, int &ptr_green_s_high, int &ptr_green_v_high, int &ptr_playback_speed_video, string &base_filename)
 {
 	int retval = 0;
 	int bufsize = 250;
 	TCHAR CurrentDirectory[250];
 	TCHAR strAppName[30] = L"Tracker_params";
-	TCHAR iniFilePath[250];
-
+	TCHAR iniFilePath[250]; 
+	String iniFilePath_;
 	size_t nbrOfConvertedChars = 0;
 
 	SYSTEMTIME st; // get timestamp to eventually put this as export folder id
@@ -40,6 +48,7 @@ int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, in
 	{
 		GetCurrentDirectory(bufsize, CurrentDirectory);
 		swprintf(iniFilePath, 250, L"%s\\%s.ini", CurrentDirectory, strAppName);
+		iniFilePath_ = iniFilePath; // Convert TCHAR to string
 		
 		ptr_grabber_timeout = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("grabber_timeout "), 3000, iniFilePath);
 		cout << "Grabber timeout set to: " << ptr_grabber_timeout << endl;
@@ -116,6 +125,47 @@ int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, in
 		ptr_playback_speed_video = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("playback_speed_video"), 0, iniFilePath);
 		cout << "Playback speed video: " << ptr_playback_speed_video << endl;
 
+		ptr_playback_speed_video = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("playback_speed_video"), 0, iniFilePath);
+		cout << "Playback speed video: " << ptr_playback_speed_video << endl;
+
+
+		// Get base filename path
+		// https://stackoverflow.com/questions/11876290/c-fastest-way-to-read-only-last-line-of-text-file
+
+		ifstream fin;
+		string lastLine;
+		string base_filename_ = "base_filename"; // what to search for 
+
+		fin.open(iniFilePath_);
+		if (fin.is_open()) {
+			fin.seekg(-1, ios_base::end);
+			bool keepLooping = true;
+			while (keepLooping) {
+				char ch;
+				fin.get(ch);
+				if ((int)fin.tellg() <= 1) {
+					fin.seekg(0);
+					getline(fin, lastLine);
+					if (lastLine.find(base_filename_) != std::string::npos) {
+						keepLooping = false;
+					}
+				}
+				else if (ch == '\n') {
+					getline(fin, lastLine);
+					if (lastLine.find(base_filename_) != std::string::npos) {
+						keepLooping = false;
+					}
+				}
+				else {
+					fin.seekg(-2, ios_base::cur);
+				}
+			}
+
+			string delimiter = "=";
+			base_filename = lastLine.substr(lastLine.find(delimiter) + 1, 500); // read up to 500 characters here
+			cout << "Base filename: " << base_filename << '\n';
+			fin.close();
+		}
 	}
 	catch (...)
 	{
@@ -124,3 +174,6 @@ int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, in
 	}
 	return retval;
 }
+
+
+

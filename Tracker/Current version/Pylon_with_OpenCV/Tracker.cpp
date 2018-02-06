@@ -73,12 +73,13 @@ int main(int argc, char* argv[])
 	int green_s_high;
 	int green_v_high;
 	int playback_speed_video;
+	string base_filename;
 
 	cout << "Reading ini-file..." << endl;
 	retval = init(grabber_timeout, exposure_time, delay_us, gain_increase, debouncer_us, saveImages, recordVideo,
 		acq_frame_height, acq_frame_width, offset_x, offset_y, scale_factor,
 		red_h_low, red_s_low, red_v_low, red_h_high, red_s_high, red_v_high,
-		green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high, playback_speed_video);
+		green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high, playback_speed_video, base_filename);
 
 	// Automagically call PylonInitialize and PylonTerminate to ensure the pylon runtime system
 	// is initialized during the lifetime of this object.
@@ -147,7 +148,7 @@ int main(int argc, char* argv[])
 		{
 			// Define the video file name.
 			std::stringstream videoFileName_;
-			videoFileName_ << "export/Video_" << st.wYear << "-" << st.wMonth << "-" << st.wDay << "_" << st.wHour << "-" << st.wMinute << "-" << st.wSecond << ".avi";
+			videoFileName_ << base_filename << ".avi";
 			std::string videoFileName = videoFileName_.str();
 			// Define the video frame size.
 			cv::Size frameSize = Size(acq_frame_width / scale_factor, acq_frame_height / scale_factor);
@@ -156,7 +157,7 @@ int main(int argc, char* argv[])
 																												  
 		// create output tracking .csv file
 		std::stringstream outputfilename_;
-		outputfilename_ << "export/Tracking_" << st.wYear << "-" << st.wMonth << "-" << st.wDay << "_" << st.wHour << "-" << st.wMinute << "-" << st.wSecond << ".csv";
+		outputfilename_ << base_filename << ".csv";
 		std::string outputfilename = outputfilename_.str();
 		ofstream output_timestamps;
 		output_timestamps.open(outputfilename);
@@ -310,7 +311,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Comment the following two lines to disable waiting on exit.
-	cerr << endl << "Press ENTER to exit." << endl;
-	while (cin.get() != '\n');
+	//cerr << endl << "Press ENTER to exit." << endl;
+	//while (cin.get() != '\n');
 	return exitCode;
 }

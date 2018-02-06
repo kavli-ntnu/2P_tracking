@@ -4,6 +4,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
+using namespace std;
 
 
 int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, int &ptr_gain, int &ptr_debouncer, int &ptr_saveImages, int &ptr_recordVideo,
@@ -11,4 +12,4 @@ int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, in
 	int &ptr_red_h_low, int &ptr_red_s_low, int &ptr_red_v_low,
 	int &ptr_red_h_high, int &ptr_red_s_high, int &ptr_red_v_high,
 	int &ptr_green_h_low, int &ptr_green_s_low, int &ptr_green_v_low,
-	int &ptr_green_h_high, int &ptr_green_s_high, int &ptr_green_v_high, int &ptr_playback_speed_video);
+	int &ptr_green_h_high, int &ptr_green_s_high, int &ptr_green_v_high, int &ptr_playback_speed_video, string &base_filename);

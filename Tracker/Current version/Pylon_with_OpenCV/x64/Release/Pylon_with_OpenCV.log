@@ -1,1 +1,11 @@
-﻿  Pylon_with_OpenCV.vcxproj -> C:\CODE\2P_tracking\Tracker\Current version\x64\Release\Tracker_Horst.exe
+﻿  Tracker.cpp
+Tracker.cpp(246): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+Tracker.cpp(247): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+Tracker.cpp(248): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+Tracker.cpp(249): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+  Generating code
+  9 of 3925 functions ( 0.2%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    1 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  Pylon_with_OpenCV.vcxproj -> C:\CODE\2P_tracking\Tracker\Current version\x64\Release\Tracker_Horst.exe
