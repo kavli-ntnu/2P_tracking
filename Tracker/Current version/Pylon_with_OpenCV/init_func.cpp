@@ -26,12 +26,12 @@ typedef std::wstring String;
 
 // INIT FUNCTION:
 // Grab parameters from file in script folder
-int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, int &ptr_gain, int &ptr_debouncer, int &ptr_saveImages, int &ptr_recordVideo,
+int init(int &ptr_show_trackbars, int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, int &ptr_gain, int &ptr_debouncer, int &ptr_saveImages, int &ptr_recordVideo,
 	int &ptr_acq_frame_height, int &ptr_acq_frame_width, int &ptr_offset_x, int &ptr_offset_y, int &ptr_scale_factor,
 	int &ptr_red_h_low, int &ptr_red_s_low, int &ptr_red_v_low, 
 	int &ptr_red_h_high, int &ptr_red_s_high, int &ptr_red_v_high,
 	int &ptr_green_h_low, int &ptr_green_s_low, int &ptr_green_v_low,
-	int &ptr_green_h_high, int &ptr_green_s_high, int &ptr_green_v_high, int &ptr_playback_speed_video, string &base_filename)
+	int &ptr_green_h_high, int &ptr_green_s_high, int &ptr_green_v_high, int &ptr_playback_speed_video, int &ptr_alpha, string &base_filename)
 {
 	int retval = 0;
 	int bufsize = 250;
@@ -49,7 +49,10 @@ int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, in
 		GetCurrentDirectory(bufsize, CurrentDirectory);
 		swprintf(iniFilePath, 250, L"%s\\%s.ini", CurrentDirectory, strAppName);
 		iniFilePath_ = iniFilePath; // Convert TCHAR to string
-		
+
+		ptr_show_trackbars = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("show_trackbars"), 1, iniFilePath);
+		cout << "Show trackbars (0=False):" << ptr_show_trackbars << endl;
+
 		ptr_grabber_timeout = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("grabber_timeout "), 3000, iniFilePath);
 		cout << "Grabber timeout set to: " << ptr_grabber_timeout << endl;
 
@@ -125,9 +128,9 @@ int init(int &ptr_grabber_timeout, int &ptr_exposure_time, int &ptr_delay_us, in
 		ptr_playback_speed_video = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("playback_speed_video"), 0, iniFilePath);
 		cout << "Playback speed video: " << ptr_playback_speed_video << endl;
 
-		ptr_playback_speed_video = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("playback_speed_video"), 0, iniFilePath);
-		cout << "Playback speed video: " << ptr_playback_speed_video << endl;
-
+		// Base 10 alpha value for drawing dots
+		ptr_alpha = GetPrivateProfileInt(TEXT("SETTINGS"), TEXT("alpha"), 0, iniFilePath);
+		cout << "Alpha of dots in tracking (/10): " << ptr_alpha << endl;
 
 		// Get base filename path
 		// https://stackoverflow.com/questions/11876290/c-fastest-way-to-read-only-last-line-of-text-file

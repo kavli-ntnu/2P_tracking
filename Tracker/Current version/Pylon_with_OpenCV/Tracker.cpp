@@ -12,7 +12,7 @@ See Github Repo for explanations
 #include <fstream>
 #include <vector>
 #include <chrono>
-
+#include <string> 
 
 // Include files to use the PYLON API.
 #include <pylon/PylonIncludes.h>
@@ -41,12 +41,52 @@ using namespace std;
 using namespace GenApi;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+int red_h_low;
+int red_s_low;
+int red_v_low;
+int red_h_high;
+int red_s_high;
+int red_v_high;
+int green_h_low;
+int green_s_low;
+int green_v_low;
+int green_h_high;
+int green_s_high;
+int green_v_high;
+
+void on_red_h_low_trackbar(int position)
+{	red_h_low = position; }
+void on_red_s_low_trackbar(int position)
+{	red_s_low = position; }
+void on_red_v_low_trackbar(int position)
+{	red_v_low = position; }
+void on_red_h_high_trackbar(int position)
+{	red_h_high = position; }
+void on_red_s_high_trackbar(int position)
+{	red_s_high = position; }
+void on_red_v_high_trackbar(int position)
+{	red_v_high = position; }
+
+void on_green_h_low_trackbar(int position)
+{	green_h_low = position; }
+void on_green_s_low_trackbar(int position)
+{	green_s_low = position; }
+void on_green_v_low_trackbar(int position)
+{	green_v_low = position; }
+void on_green_h_high_trackbar(int position)
+{	green_h_high = position; }
+void on_green_s_high_trackbar(int position)
+{	green_s_high = position; }
+void on_green_v_high_trackbar(int position)
+{	green_v_high = position; }
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char* argv[])
 {
 
 	// The exit code of the sample application.
 	int exitCode = 0;
+	int show_trackbars = 1;
 	int grabber_timeout = 3000;
 	int retval = 0;
 	int exposure_time = 3000;
@@ -60,26 +100,16 @@ int main(int argc, char* argv[])
 	int offset_x;
 	int offset_y;
 	int scale_factor;
-	int red_h_low;
-	int red_s_low;
-	int red_v_low;
-	int red_h_high;
-	int red_s_high;
-	int red_v_high;
-	int green_h_low;
-	int green_s_low;
-	int green_v_low;
-	int green_h_high;
-	int green_s_high;
-	int green_v_high;
 	int playback_speed_video;
+	int alpha = 2;
+	double alpha_ = .2;
 	string base_filename;
 
 	cout << "Reading ini-file..." << endl;
-	retval = init(grabber_timeout, exposure_time, delay_us, gain_increase, debouncer_us, saveImages, recordVideo,
+	retval = init(show_trackbars, grabber_timeout, exposure_time, delay_us, gain_increase, debouncer_us, saveImages, recordVideo,
 		acq_frame_height, acq_frame_width, offset_x, offset_y, scale_factor,
 		red_h_low, red_s_low, red_v_low, red_h_high, red_s_high, red_v_high,
-		green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high, playback_speed_video, base_filename);
+		green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high, playback_speed_video, alpha, base_filename);
 
 	// Automagically call PylonInitialize and PylonTerminate to ensure the pylon runtime system
 	// is initialized during the lifetime of this object.
@@ -172,6 +202,26 @@ int main(int argc, char* argv[])
 		namedWindow("Tracking", CV_WINDOW_NORMAL);
 		resizeWindow("Tracking", 500, 500);
 
+		// Create bars
+		if (show_trackbars == 1)  {
+			namedWindow("Thresholds", CV_WINDOW_NORMAL);
+			resizeWindow("Thresholds", 500, 800);
+
+			cvCreateTrackbar("R H LOW", "Thresholds",  &red_h_low,  255, on_red_h_low_trackbar);
+			cvCreateTrackbar("R H HIGH", "Thresholds", &red_h_high, 255, on_red_h_high_trackbar);
+			cvCreateTrackbar("R S LOW", "Thresholds",  &red_s_low,  255, on_red_s_low_trackbar);
+			cvCreateTrackbar("R S HIGH", "Thresholds", &red_s_high, 255, on_red_s_high_trackbar);
+			cvCreateTrackbar("R V LOW", "Thresholds",  &red_h_low,  255, on_red_v_low_trackbar);
+			cvCreateTrackbar("R V HIGH", "Thresholds", &red_h_high, 255, on_red_v_high_trackbar);
+
+			cvCreateTrackbar("G H LOW",  "Thresholds", &green_h_low,  255, on_green_h_low_trackbar);
+			cvCreateTrackbar("G H HIGH", "Thresholds", &green_h_high, 255, on_green_h_high_trackbar);
+			cvCreateTrackbar("G S LOW",  "Thresholds", &green_s_low,  255, on_green_s_low_trackbar);
+			cvCreateTrackbar("G S HIGH", "Thresholds", &green_s_high, 255, on_green_s_high_trackbar);
+			cvCreateTrackbar("G V LOW",  "Thresholds", &green_h_low,  255, on_green_v_low_trackbar);
+			cvCreateTrackbar("G V HIGH", "Thresholds", &green_h_high, 255, on_green_v_high_trackbar);
+		} 
+
 		Mat tracking_result = Mat(2, 2, CV_64F, double(0)); // what comes out of the actual tracking function 
 		double framerate_calc = 0.;
 
@@ -238,15 +288,25 @@ int main(int argc, char* argv[])
 				cv::Mat mat8_uc3(acq_frame_height, acq_frame_width, CV_8UC3, (uintmax_t *)ptrGrabResult->GetBuffer());
 				resize(mat8_uc3, mat8_uc3_small_video, size_small); //resize images
 				mat8_uc3.release();
+
 				// Start tracking here 
 				tracking_result = GetThresholdedImage(mat8_uc3_small_video, red_h_low, red_s_low, red_v_low,
 					red_h_high, red_s_high, red_v_high, green_h_low, green_s_low, green_v_low, green_h_high, green_s_high, green_v_high);
 
+				// add overlay
+				cv::Mat mat8_uc3_small_track_overlay;
+				mat8_uc3_small_track.copyTo(mat8_uc3_small_track_overlay);
+
 				// draw tracking
 				Point pt_green = Point(tracking_result.at<double>(0, 0), tracking_result.at<double>(0, 1));
-				circle(mat8_uc3_small_track, pt_green, 1, cvScalar(0, 0, 255), 1.5);
+				circle(mat8_uc3_small_track_overlay, pt_green, 1.5, cvScalar(0, 0, 255), CV_FILLED, 1.5);
+
 				Point pt_red = Point(tracking_result.at<double>(1, 0), tracking_result.at<double>(1, 1));
-				circle(mat8_uc3_small_track, pt_red, 1, cvScalar(0, 255, 0), 1.5);
+				circle(mat8_uc3_small_track_overlay, pt_red, 1.5, cvScalar(0, 255, 0), CV_FILLED, 1.5);
+
+				// add tracking to overlay and combine with source matrix
+				alpha_ = (double)alpha/10;
+				cv::addWeighted(mat8_uc3_small_track_overlay, alpha_, mat8_uc3_small_track, 1 - alpha_, 0, mat8_uc3_small_track);
 
 				// save
 				output_timestamps << grabbedImages << "," << chunkTimestamp->GetValue() << "," << tic_system  << "," << tracking_result.at<double>(0, 0) << "," <<
