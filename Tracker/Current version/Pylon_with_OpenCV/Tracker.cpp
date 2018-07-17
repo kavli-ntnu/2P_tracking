@@ -319,7 +319,7 @@ int main(int argc, char* argv[])
 				// Set saveImages to '1' to save images. Careful, this is extremly slow.
 				if (saveImages) {
 					std::stringstream imagefilename_;
-					imagefilename_ << "export/" << st.wYear << "-" << st.wMonth << "-" << st.wDay << "_" << st.wHour << "-" << st.wMinute << "-" << st.wSecond << "__" << grabbedImages << ".jpg";
+					imagefilename_ << base_filename << st.wYear << "-" << st.wMonth << "-" << st.wDay << "_" << st.wHour << "-" << st.wMinute << "-" << st.wSecond << "__" << grabbedImages << ".jpg";
 					std::string imagefilename = imagefilename_.str();
 					imwrite(imagefilename, mat8_uc3_small_video);
 				}

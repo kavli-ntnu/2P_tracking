@@ -22,8 +22,8 @@ Writing images out for every grabbed frame (*saveImages* option, see below) is n
 
 If things are too slow / frames are lost:
 - Trigger < 50 Hz
-- Kill the video export 
-- lower the resolution of tracking. This is currently done through a "scale_factor" (see *Tracker_params.ini* below, e.g. 1500/scale_factor=500)
+- Kill the video export
+- lower the resolution of tracking. This is currently done through a "scale_factor" (see *Tracker_params.ini* below, e.g. 1500x1500/scale_factor=500x500)
 
 ## Installation
 The current version of the tracker can be found [here](Tracker/Current%20version).
@@ -34,6 +34,7 @@ You have to set up the parameters for color thresholding according to the LEDs y
 ## Tracker_params.ini
 Some tracker settings can be accessed through the [Tracker_params.ini](Tracker/Current%20version/x64/Release/Tracker_params.ini) in the application base folder. An explanation of all parameters follows:
 
+- **show_trackbars=1** // Show the color thresholding trackbars?
 - **grabber_timeout=2000** // Time before program aborts when no trigger input is received
 - **ExposureTime=10000** // Exposure time in microseconds
 - **TriggerDelay=0** // Delay in microseconds between the receipt of a hardware trigger signal and the moment the trigger becomes active
@@ -59,9 +60,11 @@ Some tracker settings can be accessed through the [Tracker_params.ini](Tracker/C
 - **green_s_high=255**
 - **green_v_high=255**
 - **playback_speed_video=50** // Adjust to trigger frequency to playback video in realtime
+- **alpha=2** // Has to be *integer* - alpha/10 will give the alpha value with which to plot dots on the path plot
+- **base_filename=C:\DATA_TRACKING\base_filename** // Export file path ending with base filename that file endings will be attached to
 
 ## Output
-By default (*saveImages* and *recordVideo* both 0) a .csv file with timestamps and tracking results of the acquisition is saved under /export.
+By default (*saveImages* and *recordVideo* both 0) a .csv file with timestamps and tracking results of the acquisition is saved under `base_filename`.
 Have a look at the [example Jupyter notebook](notebooks/Trackings_tests.ipynb) (python 3.6) for analysis of output .csv files. It shows how to work with the .csv and plots recorded timestamps / shows tracking results.
 
 Example header of a .csv:
