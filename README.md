@@ -85,3 +85,7 @@ Both videos and images have the dimensions of scaled (in my case 500x500 px) fra
 ### Video time
 2 LEDs on a string, tracked 500x500 px, 50fps.
 [![Watch a shaky video on Vimeo](https://i.imgur.com/EmlkPaM.png)](https://vimeo.com/245192287 "Little presentation on vimeo - Click to Watch!")
+
+
+### LED tacking bar
+Documentation about the actual tracking bar can be found under [/LEDcontroller](/LEDcontroller)
