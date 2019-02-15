@@ -1,4 +1,5 @@
+.ipynb_checkpoints
+*.pyc
 *.avi
-*.tlog
-*.jpg
-*.csv
+*.tif
+*.pkl
