@@ -34,8 +34,8 @@ You have to set up the parameters for color thresholding according to the LEDs y
 ## Tracker_params.ini
 Some tracker settings can be accessed through the [Tracker_params.ini](Tracker/Current%20version/x64/Release/Tracker_params.ini) in the application base folder. An explanation of all parameters follows:
 
-- **show_trackbars=1** // Show the color thresholding trackbars?
-- **grabber_timeout=2000** // Time before program aborts when no trigger input is received
+- **show_trackbars=0** // Show the color thresholding trackbars?
+- **grabber_timeout=5000** // Time before program aborts when no trigger input is received
 - **ExposureTime=10000** // Exposure time in microseconds
 - **TriggerDelay=0** // Delay in microseconds between the receipt of a hardware trigger signal and the moment the trigger becomes active
 - **Gain=2** // Digital gain - helped the tracking to set it to 2, shouldn't be much higher
@@ -44,7 +44,7 @@ Some tracker settings can be accessed through the [Tracker_params.ini](Tracker/C
 - **recordVideo=1** // Outputs ".avi" file under /export, which has the same size as the tracked (not grabbed) images
 - **acq_frame_height=1500** // actual height of image (ROI) grabbed from sensor - adjust to your tracked area
 - **acq_frame_width=1500** // actual width of image (ROI) grabbed from sensor
-- **offset_x=0** // ROI offset in x
+- **offset_x=520** // ROI offset in x
 - **offset_y=0** // ROI offset in y
 - **scale_factor=3** // Resize image (divide dimensions by scale_factor) to speed up tracking
 - **red_h_low=116** // HSV threshold values for the two LEDs - adjust to the color of your LEDs
